@@ -68,6 +68,19 @@
   --shadow: 0 1px 2px rgba(0,0,0,.35), 0 14px 30px -16px rgba(0,0,0,.6);
 }
 
+/* ---- accent color options (Настройки → Оформление) ---- */
+:root[data-accent="blue"]{ --accent:#2461D9; --accent-ink:#FFFFFF; --accent-soft:#DCE7FB; --accent-soft-ink:#173E8C; }
+:root[data-accent="green"]{ --accent:#1F9D55; --accent-ink:#FFFFFF; --accent-soft:#DBF2E3; --accent-soft-ink:#146B39; }
+:root[data-accent="purple"]{ --accent:#7C3AED; --accent-ink:#FFFFFF; --accent-soft:#EAE0FC; --accent-soft-ink:#4C1D95; }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"])[data-accent="blue"]{ --accent:#5B8DEF; --accent-ink:#0B1B33; --accent-soft:rgba(91,141,239,.18); --accent-soft-ink:#AFC6F5; }
+  :root:not([data-theme="light"])[data-accent="green"]{ --accent:#3FBE7C; --accent-ink:#08251A; --accent-soft:rgba(63,190,124,.18); --accent-soft-ink:#9EE3BE; }
+  :root:not([data-theme="light"])[data-accent="purple"]{ --accent:#9B6BF2; --accent-ink:#1D1235; --accent-soft:rgba(155,107,242,.18); --accent-soft-ink:#CFB8FA; }
+}
+:root[data-theme="dark"][data-accent="blue"]{ --accent:#5B8DEF; --accent-ink:#0B1B33; --accent-soft:rgba(91,141,239,.18); --accent-soft-ink:#AFC6F5; }
+:root[data-theme="dark"][data-accent="green"]{ --accent:#3FBE7C; --accent-ink:#08251A; --accent-soft:rgba(63,190,124,.18); --accent-soft-ink:#9EE3BE; }
+:root[data-theme="dark"][data-accent="purple"]{ --accent:#9B6BF2; --accent-ink:#1D1235; --accent-soft:rgba(155,107,242,.18); --accent-soft-ink:#CFB8FA; }
+
 *{box-sizing:border-box;}
 body{
   background:var(--bg); color:var(--text); font-family:var(--font-body);
@@ -101,7 +114,7 @@ button{font-family:inherit; font-size:inherit;}
 }
 .navitem:hover{background:rgba(255,255,255,.06);}
 .navitem.active{background:var(--accent); color:var(--accent-ink);}
-.navitem .ic{width:17px; text-align:center; opacity:.9; font-family:var(--font-mono); font-size:12px;}
+.navitem .ic{width:24px; text-align:center; opacity:.95; font-family:var(--font-mono); font-size:19px;}
 .sidebar-foot{margin-top:auto; padding-top:14px; border-top:1px solid rgba(255,255,255,.09);}
 .who{padding:8px 10px; font-size:12.5px; color:#9FACB8; display:flex; flex-direction:column; gap:1px;}
 .who b{color:#fff; font-weight:600; font-size:13.5px;}
@@ -291,6 +304,31 @@ tr:last-child td{border-bottom:none;}
 .demo-tag{font-size:10px; background:var(--surface-3); color:var(--text-3); padding:1px 6px; border-radius:4px; margin-left:6px; font-weight:700; letter-spacing:.3px;}
 .pl-cat{font-weight:700; font-size:13px; margin:16px 0 6px; color:var(--text); text-transform:uppercase; letter-spacing:.4px;}
 .pl-cat:first-child{margin-top:0;}
+
+/* ---- appearance (theme / accent) ---- */
+.seg-row{display:flex; gap:6px; flex-wrap:wrap;}
+.swatch-row{display:flex; gap:10px; align-items:center; margin-top:4px;}
+.swatch{width:30px; height:30px; border-radius:50%; cursor:pointer; padding:0;}
+
+/* ---- calendar ---- */
+.cal-nav{display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+.cal-nav b{font-size:15px; min-width:150px; text-align:center;}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
+.cal-grid.cal-head{margin-bottom:4px;}
+.cal-wd{text-align:center; font-size:11px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.4px; padding:4px 0;}
+.cal-cell{background:var(--surface); border:1px solid var(--border); border-radius:8px; min-height:98px; padding:6px; display:flex; flex-direction:column; gap:4px;}
+.cal-cell.cal-empty{background:transparent; border-color:transparent; box-shadow:none;}
+.cal-cell.cal-today{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset;}
+.cal-daynum{font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--text-2);}
+.cal-chips{display:flex; flex-direction:column; gap:3px; overflow-y:auto; max-height:100px;}
+.cal-chip{font-size:10.5px; font-weight:700; padding:3px 6px; border-radius:5px; cursor:pointer; border-left:3px solid var(--border); background:var(--surface-2); color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.cal-chip.due-ok{border-left-color:var(--good); color:var(--good-ink); background:var(--good-soft);}
+.cal-chip.due-soon{border-left-color:var(--warn); color:var(--warn-ink); background:var(--warn-soft);}
+.cal-chip.due-late{border-left-color:var(--critical); color:var(--critical-ink); background:var(--critical-soft);}
+@media (max-width:880px){
+  .cal-cell{min-height:64px;}
+  .cal-nav b{min-width:auto;}
+}
 @media (max-width:880px){
   .sidebar{display:none;}
   .content{padding:16px;}
@@ -369,9 +407,24 @@ var state = {
   session: null,
   view: 'board',
   data:{staff:[], doctors:[], orders:[], payments:[], expenses:[], timeoff:[], priceList:[], config:null},
-  ui:{ openOrderId:null, draftItems:[], loginStep:'choice', loginStaffId:null, pinBuf:'', docPhone:'', staffForm:null, doctorForm:null, plEdit:false, toast:null, orderFilter:'', boardOnlyMine:true, newOrderDoctorMode:'existing', linkRows:[{label:'',url:''}], uploadFiles:[], settingsDraft:null,
+  ui:{ openOrderId:null, draftItems:[], loginStep:'choice', loginStaffId:null, pinBuf:'', docPhone:'', staffForm:null, doctorForm:null, staffEditId:null, plEdit:false, toast:null, orderFilter:'', boardOnlyMine:true, newOrderDoctorMode:'existing', linkRows:[{label:'',url:''}], uploadFiles:[], settingsDraft:null, calMonth:null,
        orderFields:{patientName:'', doctorId:'', newDoctorName:'', newDoctorClinic:'', newDoctorPhone:'', notes:''} }
 };
+
+/* ============================= APPEARANCE (theme / accent) ============================= */
+function getThemeMode(){ try{ return localStorage.getItem('ideal_theme')||'system'; }catch(e){ return 'system'; } }
+function getAccent(){ try{ return localStorage.getItem('ideal_accent')||'red'; }catch(e){ return 'red'; } }
+function applyAppearance(){
+  var root = document.documentElement;
+  var mode = getThemeMode();
+  if(mode==='light') root.setAttribute('data-theme','light');
+  else if(mode==='dark') root.setAttribute('data-theme','dark');
+  else root.removeAttribute('data-theme');
+  var accent = getAccent();
+  if(accent && accent!=='red') root.setAttribute('data-accent', accent);
+  else root.removeAttribute('data-accent');
+}
+applyAppearance();
 
 function uid(){ return Math.random().toString(36).slice(2,9); }
 function esc(s){ if(s===undefined||s===null) return ''; return String(s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -626,6 +679,7 @@ function navDefsStaff(){
   var role = state.session.staff.role;
   var items = [
     {id:'board', ic:'▦', label:'Доска заказов'},
+    {id:'calendar', ic:'▤', label:'Календарь'},
     {id:'orders', ic:'≡', label:'Все заказы'}
   ];
   if(STAFF_ROLES[role] && STAFF_ROLES[role].money){
@@ -648,6 +702,7 @@ function renderStaffShell(){
   var v = state.view;
   var viewHtml;
   if(v==='board') viewHtml = renderBoard();
+  else if(v==='calendar') viewHtml = renderCalendar();
   else if(v==='orders') viewHtml = renderOrdersList();
   else if(v==='finance' && canSeeMoney()) viewHtml = renderFinance();
   else if(v==='schedule') viewHtml = renderSchedule();
@@ -658,7 +713,7 @@ function renderStaffShell(){
   else if(v==='neworder') viewHtml = renderOrderForm('staff');
   else viewHtml = renderBoard();
 
-  var title = {board:'Доска заказов', orders:'Все заказы', finance:'Финансы', schedule:'График и отгулы', staffadmin:'Сотрудники', doctorsadmin:'Врачи', pricelist:'Прайс-лист', settings:'Настройки', neworder:'Новый заказ'}[v] || 'IDEAL';
+  var title = {board:'Доска заказов', calendar:'Календарь заказов', orders:'Все заказы', finance:'Финансы', schedule:'График и отгулы', staffadmin:'Сотрудники', doctorsadmin:'Врачи', pricelist:'Прайс-лист', settings:'Настройки', neworder:'Новый заказ'}[v] || 'IDEAL';
 
   return '<div class="shell">'+
     '<div class="sidebar">'+
@@ -713,6 +768,50 @@ function renderCard(o, moneyOk){
     '<div class="metaRow"><span class="due '+dc+'">'+dueLabel(o.dueDate, o.stage)+'</span></div>'+
     (moneyOk ? '<div class="money">'+fmtMoney(o.total)+' · оплачено '+fmtMoney(paid)+'</div>' : '')+
   '</div>';
+}
+
+/* ---------- CALENDAR ---------- */
+function shiftMonth(ym, delta){
+  var p = ym.split('-'); var y = +p[0], m = +p[1] - 1 + delta;
+  y += Math.floor(m/12); m = ((m%12)+12)%12;
+  return y + '-' + String(m+1).padStart(2,'0');
+}
+function renderCalendar(){
+  var base = state.ui.calMonth || todayIso().slice(0,7);
+  var parts = base.split('-'); var y = +parts[0], m = +parts[1];
+  var startWeekday = (new Date(y, m-1, 1).getDay() + 6) % 7; // Monday = 0
+  var daysInMonth = new Date(y, m, 0).getDate();
+  var monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  var todayStr = todayIso();
+
+  var ordersByDay = {};
+  state.data.orders.forEach(function(o){
+    if(!o.dueDate || o.dueDate.slice(0,7)!==base) return;
+    (ordersByDay[o.dueDate] = ordersByDay[o.dueDate] || []).push(o);
+  });
+
+  var cells = '';
+  for(var i=0;i<startWeekday;i++) cells += '<div class="cal-cell cal-empty"></div>';
+  for(var d=1; d<=daysInMonth; d++){
+    var iso = base + '-' + String(d).padStart(2,'0');
+    var dayOrders = ordersByDay[iso] || [];
+    var chips = dayOrders.map(function(o){
+      var dc = dueClass(o.dueDate, o.stage);
+      return '<div class="cal-chip '+dc+'" data-act="openOrder" data-id="'+o.id+'" title="'+esc(o.patientName)+' — '+esc(o.stage)+'">'+esc(o.code)+'</div>';
+    }).join('');
+    cells += '<div class="cal-cell'+(iso===todayStr?' cal-today':'')+'"><div class="cal-daynum">'+d+'</div><div class="cal-chips">'+chips+'</div></div>';
+  }
+  var weekLabels = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(function(w){return '<div class="cal-wd">'+w+'</div>';}).join('');
+
+  return '<div class="cal-nav">'+
+      '<button class="btn sm ghost" type="button" data-act="calPrev">←</button>'+
+      '<b>'+monthNames[m-1]+' '+y+'</b>'+
+      '<button class="btn sm ghost" type="button" data-act="calNext">→</button>'+
+      '<button class="btn sm ghost" type="button" data-act="calToday">Сегодня</button>'+
+    '</div>'+
+    '<div class="cal-grid cal-head">'+weekLabels+'</div>'+
+    '<div class="cal-grid">'+cells+'</div>'+
+    '<p class="hint" style="margin-top:12px;">Цвет — по сроку сдачи: зелёный — есть запас, жёлтый — сегодня/завтра, красный — просрочен. Клик по заказу открывает карточку.</p>';
 }
 
 /* ---------- ORDERS LIST ---------- */
@@ -867,19 +966,40 @@ function renderSchedule(){
 
 /* ---------- STAFF ADMIN ---------- */
 function renderStaffAdmin(){
+  var editId = state.ui.staffEditId;
+  var editStaff = editId ? state.data.staff.filter(function(s){return s.id===editId;})[0] : null;
+
   var rows = state.data.staff.map(function(s){
     return '<tr><td>'+esc(s.name)+(s.demo?'<span class="demo-tag">демо</span>':'')+'</td><td>'+(STAFF_ROLES[s.role]?STAFF_ROLES[s.role].label:s.role)+'</td><td class="mono">'+esc(s.phone||'—')+'</td><td class="mono">'+esc(s.pin||'')+'</td>'+
       '<td>'+(s.active!==false?'<span class="badge good">активен</span>':'<span class="badge neutral">неактивен</span>')+'</td>'+
-      '<td class="btn-row"><button class="btn sm ghost" data-act="toggleStaffActive" data-id="'+s.id+'">'+(s.active!==false?'Деактивировать':'Активировать')+'</button></td></tr>';
+      '<td class="btn-row">'+
+        '<button class="btn sm ghost" data-act="editStaff" data-id="'+s.id+'">Изменить</button>'+
+        '<button class="btn sm ghost" data-act="toggleStaffActive" data-id="'+s.id+'">'+(s.active!==false?'Деактивировать':'Активировать')+'</button>'+
+        '<button class="btn sm danger" data-act="delStaff" data-id="'+s.id+'">Удалить</button>'+
+      '</td></tr>';
   }).join('');
-  return '<form data-act="addStaff" class="card-panel" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">'+
+
+  var editFormHtml = editStaff ? (
+    '<form data-act="updateStaff" data-id="'+editStaff.id+'" class="card-panel" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px; border-color:var(--accent);">'+
+      '<div style="width:100%; font-weight:700; font-size:13px; margin-bottom:2px;">Изменить сотрудника</div>'+
+      '<label class="field">Имя<input type="text" name="name" value="'+esc(editStaff.name)+'" required></label>'+
+      '<label class="field">Роль<select name="role">'+Object.keys(STAFF_ROLES).map(function(r){return '<option value="'+r+'"'+(editStaff.role===r?' selected':'')+'>'+STAFF_ROLES[r].label+'</option>';}).join('')+'</select></label>'+
+      '<label class="field">Телефон<input type="tel" name="phone" value="'+esc(editStaff.phone||'')+'"></label>'+
+      '<label class="field">PIN (4 цифры)<input type="text" name="pin" pattern="[0-9]{4}" maxlength="4" value="'+esc(editStaff.pin||'')+'" required></label>'+
+      '<button class="btn primary" type="submit">Сохранить</button>'+
+      '<button class="btn ghost" type="button" data-act="cancelEditStaff">Отмена</button>'+
+    '</form>'
+  ) : '';
+
+  return editFormHtml +
+    '<form data-act="addStaff" class="card-panel" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">'+
     '<label class="field">Имя<input type="text" name="name" required></label>'+
     '<label class="field">Роль<select name="role">'+Object.keys(STAFF_ROLES).map(function(r){return '<option value="'+r+'">'+STAFF_ROLES[r].label+'</option>';}).join('')+'</select></label>'+
     '<label class="field">Телефон<input type="tel" name="phone"></label>'+
     '<label class="field">PIN (4 цифры)<input type="text" name="pin" pattern="[0-9]{4}" maxlength="4" required></label>'+
     '<button class="btn primary" type="submit">Добавить сотрудника</button></form>'+
     '<div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Телефон</th><th>PIN</th><th>Статус</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-    '<p class="hint" style="margin-top:10px;">PIN — это простая защита входа внутри лаборатории, а не полноценная авторизация. Для реального контроля доступа по пользователям нужна отдельная функция платформы.</p>';
+    '<p class="hint" style="margin-top:10px;">PIN — это простая защита входа внутри лаборатории, а не полноценная авторизация. Удалить можно только сотрудника, который ни на один заказ не назначен — иначе деактивируйте его.</p>';
 }
 
 /* ---------- DOCTORS ADMIN ---------- */
@@ -924,13 +1044,27 @@ function renderPriceListAdmin(){
 /* ---------- SETTINGS ---------- */
 function renderSettingsAdmin(){
   var c = cfg();
+  var themeMode = getThemeMode();
+  var accentSel = getAccent();
+  var themeButtons = [['system','Системная'],['light','Светлая'],['dark','Тёмная']].map(function(t){
+    return '<button type="button" class="btn sm '+(themeMode===t[0]?'primary':'ghost')+'" data-act="setThemeMode" data-m="'+t[0]+'">'+t[1]+'</button>';
+  }).join('');
+  var accentDefs = [['red','#C8283C'],['blue','#2461D9'],['green','#1F9D55'],['purple','#7C3AED']];
+  var accentSwatches = accentDefs.map(function(a){
+    return '<button type="button" class="swatch" data-act="setAccent" data-c="'+a[0]+'" title="'+a[0]+'" style="background:'+a[1]+'; border:2px solid '+(accentSel===a[0]?'var(--text)':'transparent')+';"></button>';
+  }).join('');
+  var appearanceHtml = '<div class="card-panel" style="margin-bottom:22px; max-width:560px;"><h3 style="margin-bottom:10px;">Оформление</h3>'+
+    '<div class="hint" style="margin-bottom:6px;">Тема</div><div class="seg-row">'+themeButtons+'</div>'+
+    '<div class="hint" style="margin:14px 0 4px;">Цвет акцента</div><div class="swatch-row">'+accentSwatches+'</div>'+
+    '<p class="hint" style="margin-top:10px;">Настройка сохраняется в этом браузере/приложении — на каждом устройстве можно выбрать своё.</p></div>';
   var tiersHtml = c.deadlineTiers.map(function(t,i){
     return '<div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">до <input type="number" data-tier="max" data-i="'+i+'" value="'+t.maxUnits+'" style="width:80px;"> единиц → <input type="number" data-tier="days" data-i="'+i+'" value="'+t.days+'" style="width:70px;"> дней <button class="btn sm ghost" type="button" data-act="removeTier" data-i="'+i+'">✕</button></div>';
   }).join('');
   var stagesHtml = c.stages.map(function(s,i){
     return '<div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;"><input type="text" data-stage-i="'+i+'" value="'+esc(s)+'"> <button class="btn sm ghost" type="button" data-act="removeStage" data-i="'+i+'">✕</button></div>';
   }).join('');
-  return '<form data-act="saveSettings" class="grid" style="gap:22px; max-width:560px;">'+
+  return appearanceHtml +
+    '<form data-act="saveSettings" class="grid" style="gap:22px; max-width:560px;">'+
     '<div class="card-panel"><h3 style="margin-bottom:10px;">Название лаборатории</h3><input type="text" name="labName" value="'+esc(c.labName)+'"></div>'+
     '<div class="card-panel"><h3 style="margin-bottom:10px;">Этапы производства</h3>'+stagesHtml+
       '<div class="btn-row" style="margin-top:6px;"><button class="btn sm ghost" type="button" data-act="addStageField">+ Добавить этап</button></div></div>'+
@@ -1199,6 +1333,23 @@ document.addEventListener('click', async function(e){
     await state.db.collection('staff').doc(s.id).update({active: s.active===false});
     return;
   }
+  if(act==='editStaff'){ state.ui.staffEditId = el.getAttribute('data-id'); render(); return; }
+  if(act==='cancelEditStaff'){ state.ui.staffEditId = null; render(); return; }
+  if(act==='delStaff'){
+    if(!state.db) return;
+    var delId = el.getAttribute('data-id');
+    var used = state.data.orders.some(function(o){ return o.assignedStaffId===delId || o.assignedMillerId===delId; });
+    if(used){ toast('Нельзя удалить: сотрудник назначен на заказы. Деактивируйте вместо удаления.'); return; }
+    if(!confirm('Удалить сотрудника без возможности восстановления?')) return;
+    await state.db.collection('staff').doc(delId).delete();
+    if(state.ui.staffEditId===delId) state.ui.staffEditId = null;
+    toast('Сотрудник удалён'); return;
+  }
+  if(act==='calPrev'){ state.ui.calMonth = shiftMonth(state.ui.calMonth||todayIso().slice(0,7), -1); render(); return; }
+  if(act==='calNext'){ state.ui.calMonth = shiftMonth(state.ui.calMonth||todayIso().slice(0,7), 1); render(); return; }
+  if(act==='calToday'){ state.ui.calMonth = todayIso().slice(0,7); render(); return; }
+  if(act==='setThemeMode'){ try{ localStorage.setItem('ideal_theme', el.getAttribute('data-m')); }catch(e){} applyAppearance(); render(); return; }
+  if(act==='setAccent'){ try{ localStorage.setItem('ideal_accent', el.getAttribute('data-c')); }catch(e){} applyAppearance(); render(); return; }
   if(act==='removePriceItem'){
     if(!state.db) return;
     var items = state.data.priceList.filter(function(p){return p.id!==el.getAttribute('data-id');});
@@ -1368,6 +1519,13 @@ document.addEventListener('submit', async function(e){
     if(!state.db) return;
     await state.db.collection('staff').add({name:fd.get('name'), role:fd.get('role'), phone:fd.get('phone')||'', pin:fd.get('pin'), active:true, demo:false, createdAt:new Date().toISOString()});
     form.reset(); toast('Сотрудник добавлен'); return;
+  }
+  if(act==='updateStaff'){
+    if(!state.db) return;
+    var editId2 = form.getAttribute('data-id');
+    await state.db.collection('staff').doc(editId2).update({name:fd.get('name'), role:fd.get('role'), phone:fd.get('phone')||'', pin:fd.get('pin')});
+    state.ui.staffEditId = null;
+    toast('Сотрудник обновлён'); return;
   }
   if(act==='addDoctor'){
     if(!state.db) return;
