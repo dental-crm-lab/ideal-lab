@@ -2,6 +2,9 @@ const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Built-in server address — the app opens straight to this site, no setup screen.
+const DEFAULT_SERVER_URL = 'https://ideal-lab-production.up.railway.app';
+
 function configPath() {
   return path.join(app.getPath('userData'), 'config.json');
 }
@@ -38,11 +41,7 @@ function createWindow() {
   });
 
   const cfg = loadConfig();
-  if (cfg.serverUrl) {
-    mainWindow.loadURL(cfg.serverUrl);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, 'config.html'));
-  }
+  mainWindow.loadURL(cfg.serverUrl || DEFAULT_SERVER_URL);
 
   const menu = Menu.buildFromTemplate([
     {
