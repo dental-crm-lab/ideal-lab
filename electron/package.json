@@ -16,6 +16,7 @@
   "build": {
     "appId": "com.ideal.lab.desktop",
     "productName": "IDEAL Lab",
+    "copyright": "IDEAL Lab",
     "directories": { "output": "dist" },
     "publish": null,
     "files": ["main.js", "preload.js", "config.html", "icon.png", "icon.ico"],
@@ -28,10 +29,20 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "IDEAL Lab"
+      "shortcutName": "IDEAL Lab",
+      "menuCategory": false,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "artifactName": "IDEAL-Lab-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "IDEAL-Lab-Portable-${version}.exe"
     }
   }
 }
