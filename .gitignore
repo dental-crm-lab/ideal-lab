@@ -1,0 +1,6 @@
+node_modules/
+server/data/
+electron/dist/
+electron/node_modules/
+.DS_Store
+*.log
