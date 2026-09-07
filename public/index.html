@@ -1,0 +1,1430 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IDEAL Lab</title>
+<meta name="description" content="IDEAL CAD-CAM Lab — доска заказов, приём заявок от врачей и финансовый учёт.">
+<meta name="theme-color" content="#1B232B">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon-32.png" sizes="32x32">
+<link rel="icon" href="/icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IDEAL">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@500;600;700&family=PT+Sans:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --font-display:'Golos Text',system-ui,sans-serif;
+  --font-body:'PT Sans',system-ui,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,monospace;
+
+  --bg:#F2F4F5;
+  --surface:#FFFFFF;
+  --surface-2:#E8ECEE;
+  --surface-3:#DBE2E5;
+  --border:#D6DEE2;
+  --text:#1B2226;
+  --text-2:#55636B;
+  --text-3:#8B9AA3;
+  --accent:#C8283C;
+  --accent-ink:#FFFFFF;
+  --accent-soft:#F8DEE2;
+  --accent-soft-ink:#8A1B2A;
+  --slate:#232E37;
+  --slate-2:#3B4A55;
+  --slate-ink:#C7D2D8;
+  --good:#2F8F5B; --good-soft:#DEF0E4; --good-ink:#1D6B41;
+  --warn:#B8791A; --warn-soft:#F6E9CE; --warn-ink:#8C5B10;
+  --critical:#C1440E; --critical-soft:#F7DFD1; --critical-ink:#943308;
+  --shadow: 0 1px 2px rgba(20,30,35,.07), 0 10px 26px -14px rgba(20,30,35,.22);
+  --radius: 12px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#14181B; --surface:#1B2126; --surface-2:#212A30; --surface-3:#29343B;
+    --border:#333F47; --text:#EDF2F4; --text-2:#A8B7BF; --text-3:#728089;
+    --accent:#E9576C; --accent-ink:#20060A; --accent-soft:rgba(233,87,108,.16); --accent-soft-ink:#F3A5B0;
+    --slate:#10161A; --slate-2:#26333C; --slate-ink:#C7D2D8;
+    --good:#4FB781; --good-soft:rgba(79,183,129,.16); --good-ink:#8FDBB4;
+    --warn:#DDA83F; --warn-soft:rgba(221,168,63,.16); --warn-ink:#EFC57A;
+    --critical:#E2703B; --critical-soft:rgba(226,112,59,.16); --critical-ink:#F3A374;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 14px 30px -16px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#14181B; --surface:#1B2126; --surface-2:#212A30; --surface-3:#29343B;
+  --border:#333F47; --text:#EDF2F4; --text-2:#A8B7BF; --text-3:#728089;
+  --accent:#E9576C; --accent-ink:#20060A; --accent-soft:rgba(233,87,108,.16); --accent-soft-ink:#F3A5B0;
+  --slate:#10161A; --slate-2:#26333C; --slate-ink:#C7D2D8;
+  --good:#4FB781; --good-soft:rgba(79,183,129,.16); --good-ink:#8FDBB4;
+  --warn:#DDA83F; --warn-soft:rgba(221,168,63,.16); --warn-ink:#EFC57A;
+  --critical:#E2703B; --critical-soft:rgba(226,112,59,.16); --critical-ink:#F3A374;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 14px 30px -16px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box;}
+body{
+  background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:14.5px; line-height:1.45; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:var(--font-display); font-weight:700; margin:0; text-wrap:balance; color:var(--text);}
+a{color:inherit;}
+button{font-family:inherit; font-size:inherit;}
+::selection{background:var(--accent-soft); color:var(--accent-soft-ink);}
+.mono{font-family:var(--font-mono); font-variant-numeric:tabular-nums;}
+.muted{color:var(--text-2);}
+.faint{color:var(--text-3);}
+.hidden{display:none!important;}
+
+/* ---- layout shell ---- */
+#app{min-height:100vh;}
+.shell{display:flex; min-height:100vh;}
+.sidebar{
+  width:236px; flex-shrink:0; background:var(--slate); color:var(--slate-ink);
+  display:flex; flex-direction:column; padding:20px 14px; gap:4px;
+}
+.brand{display:flex; flex-direction:column; gap:2px; padding:2px 8px 18px; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,.09);}
+.brand .word{font-family:var(--font-display); font-weight:700; font-size:22px; color:#fff; letter-spacing:.5px;}
+.brand .word em{font-style:normal; color:var(--accent);}
+.brand .stripe{width:34px; height:3px; background:var(--accent); border-radius:2px; margin:5px 0 7px;}
+.brand .tag{font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:#8492A0;}
+.navgroup-label{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; color:#6C7A87; padding:14px 10px 4px;}
+.navitem{
+  display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; cursor:pointer;
+  color:var(--slate-ink); font-size:14px; font-weight:500;
+}
+.navitem:hover{background:rgba(255,255,255,.06);}
+.navitem.active{background:var(--accent); color:var(--accent-ink);}
+.navitem .ic{width:17px; text-align:center; opacity:.9; font-family:var(--font-mono); font-size:12px;}
+.sidebar-foot{margin-top:auto; padding-top:14px; border-top:1px solid rgba(255,255,255,.09);}
+.who{padding:8px 10px; font-size:12.5px; color:#9FACB8; display:flex; flex-direction:column; gap:1px;}
+.who b{color:#fff; font-weight:600; font-size:13.5px;}
+.logout-btn{width:100%; text-align:left; padding:8px 10px; border-radius:8px; background:none; border:none; color:#C6D0D8; cursor:pointer; font-size:13px;}
+.logout-btn:hover{background:rgba(255,255,255,.06); color:#fff;}
+
+.main{flex:1; min-width:0; display:flex; flex-direction:column;}
+.topbar{
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:14px 26px; border-bottom:1px solid var(--border); background:var(--surface);
+  position:sticky; top:0; z-index:5;
+}
+.topbar h1{font-size:19px;}
+.content{padding:22px 26px 60px; overflow-x:hidden;}
+.content-inner{max-width:1180px;}
+
+/* doctor shell (simpler, mobile-first) */
+.doc-shell{min-height:100vh; display:flex; flex-direction:column;}
+.doc-top{
+  background:var(--slate); color:#fff; padding:14px 18px; display:flex; align-items:center; justify-content:space-between;
+}
+.doc-top .word{font-family:var(--font-display); font-weight:700; font-size:18px;}
+.doc-top .word em{font-style:normal; color:var(--accent);}
+.doc-tabs{display:flex; gap:6px; background:var(--surface); border-bottom:1px solid var(--border); padding:8px 14px; position:sticky; top:0; z-index:5;}
+.doc-tab{padding:8px 14px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer; color:var(--text-2);}
+.doc-tab.active{background:var(--accent-soft); color:var(--accent-soft-ink);}
+.doc-content{padding:18px; max-width:640px; margin:0 auto; width:100%;}
+
+/* ---- basic components ---- */
+.card-panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow);}
+.grid{display:grid; gap:14px;}
+.stat-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:20px;}
+.stat-tile{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px;}
+.stat-tile .label{font-size:11.5px; text-transform:uppercase; letter-spacing:.7px; color:var(--text-3); font-weight:600;}
+.stat-tile .value{font-family:var(--font-mono); font-size:23px; font-weight:600; margin-top:6px; font-variant-numeric:tabular-nums;}
+.stat-tile .sub{font-size:12px; color:var(--text-2); margin-top:2px;}
+.stat-tile.accent .value{color:var(--accent);}
+.stat-tile.crit .value{color:var(--critical);}
+.stat-tile.good .value{color:var(--good);}
+
+.btn{
+  display:inline-flex; align-items:center; gap:7px; padding:9px 15px; border-radius:8px; border:1px solid transparent;
+  font-weight:600; font-size:13.5px; cursor:pointer; background:var(--surface-2); color:var(--text);
+}
+.btn:hover{filter:brightness(0.97);}
+.btn.primary{background:var(--accent); color:var(--accent-ink);}
+.btn.ghost{background:transparent; border:1px solid var(--border); color:var(--text-2);}
+.btn.sm{padding:5px 10px; font-size:12.5px; border-radius:6px;}
+.btn.danger{background:var(--critical-soft); color:var(--critical-ink);}
+.btn:disabled{opacity:.45; cursor:not-allowed;}
+.btn-row{display:flex; gap:8px; flex-wrap:wrap;}
+
+label.field{display:flex; flex-direction:column; gap:5px; font-size:13px; font-weight:600; color:var(--text-2);}
+input[type=text],input[type=number],input[type=tel],input[type=date],input[type=password],input[type=url],select,textarea{
+  font-family:var(--font-body); font-size:14px; padding:9px 11px; border-radius:8px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text); width:100%;
+}
+textarea{resize:vertical; min-height:64px;}
+input:focus,select:focus,textarea:focus,button:focus-visible,.navitem:focus-visible,.card:focus-visible{
+  outline:2px solid var(--accent); outline-offset:1px;
+}
+.check{display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:600; color:var(--text-2); cursor:pointer;}
+.hint{font-size:12px; color:var(--text-3); font-weight:400;}
+
+.badge{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:700; letter-spacing:.2px;}
+.badge.good{background:var(--good-soft); color:var(--good-ink);}
+.badge.warn{background:var(--warn-soft); color:var(--warn-ink);}
+.badge.crit{background:var(--critical-soft); color:var(--critical-ink);}
+.badge.accent{background:var(--accent-soft); color:var(--accent-soft-ink);}
+.badge.neutral{background:var(--surface-2); color:var(--text-2);}
+
+table{width:100%; border-collapse:collapse; font-size:13.5px;}
+th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-3); padding:8px 10px; border-bottom:1px solid var(--border); font-weight:700;}
+td{padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+.table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface);}
+.table-wrap table{min-width:560px;}
+
+/* ---- board / kanban ---- */
+.board{display:flex; gap:14px; overflow-x:auto; padding-bottom:10px; align-items:flex-start;}
+.column{background:var(--surface-2); border-radius:var(--radius); min-width:250px; width:250px; flex-shrink:0; max-height:calc(100vh - 190px); display:flex; flex-direction:column;}
+.column-head{padding:11px 13px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:baseline; gap:6px;}
+.column-head .name{font-weight:700; font-size:13px;}
+.column-head .count{font-family:var(--font-mono); font-size:12px; color:var(--text-3);}
+.column-sum{padding:0 13px 8px; font-family:var(--font-mono); font-size:11.5px; color:var(--text-2);}
+.column-body{padding:9px; display:flex; flex-direction:column; gap:9px; overflow-y:auto; flex:1;}
+.column-empty{padding:16px 10px; text-align:center; color:var(--text-3); font-size:12px;}
+.card{
+  background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--border); border-radius:8px;
+  padding:10px 11px; box-shadow:var(--shadow); cursor:pointer;
+}
+.card:hover{border-color:var(--accent);}
+.card.due-ok{border-left-color:var(--good);}
+.card.due-soon{border-left-color:var(--warn);}
+.card.due-late{border-left-color:var(--critical);}
+.card .code{font-family:var(--font-mono); font-size:11.5px; color:var(--text-3); font-weight:600;}
+.card .pat{font-weight:700; font-size:13.5px; margin-top:3px;}
+.card .doc{font-size:12px; color:var(--text-2); margin-top:1px;}
+.card .metaRow{display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:6px;}
+.card .due{font-size:11.5px; font-weight:700;}
+.card .due.due-ok{color:var(--good-ink);}
+.card .due.due-soon{color:var(--warn-ink);}
+.card .due.due-late{color:var(--critical-ink);}
+.card .money{font-family:var(--font-mono); font-size:11.5px; color:var(--text-2); margin-top:5px;}
+
+/* ---- order form / tooth chart ---- */
+.tooth-chart{display:grid; grid-template-columns:1fr 1fr; gap:6px 20px; padding:8px 2px;}
+.tq{display:flex; gap:3px; flex-wrap:wrap;}
+.tq.rev{flex-direction:row-reverse;}
+.tooth-btn{
+  width:26px; height:26px; border-radius:6px; border:1px solid var(--border); background:var(--surface);
+  font-family:var(--font-mono); font-size:10.5px; color:var(--text-2); cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.tooth-btn.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:700;}
+.arch-label{font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:.6px; width:100%; margin-bottom:2px;}
+
+.draft-line{border:1px solid var(--border); border-radius:8px; padding:10px 12px; background:var(--surface-2); margin-bottom:8px;}
+.draft-line .top{display:flex; justify-content:space-between; gap:8px; align-items:flex-start;}
+.draft-line .name{font-weight:700; font-size:13px;}
+.draft-line .price{font-family:var(--font-mono); font-size:12px; color:var(--text-2);}
+.draft-line .rm{background:none; border:none; color:var(--text-3); cursor:pointer; font-size:16px; line-height:1; padding:2px 4px;}
+.draft-line .rm:hover{color:var(--critical);}
+.qtyBox{display:flex; align-items:center; gap:8px; margin-top:6px;}
+.qtyBox input{width:70px;}
+.linetotal{margin-top:8px; text-align:right; font-family:var(--font-mono); font-weight:700; font-size:13px;}
+
+.link-row{display:flex; gap:8px; margin-bottom:7px;}
+.dropzone{
+  border:1.5px dashed var(--border); border-radius:10px; padding:18px 16px; display:flex; align-items:center; gap:12px;
+  cursor:pointer; background:var(--surface-2); font-size:13px; color:var(--text-2);
+}
+.dropzone:hover, .dropzone.drag{ border-color:var(--accent); background:var(--accent-soft); }
+.dropzone .dz-ic{ font-size:22px; color:var(--accent); flex-shrink:0; }
+.dropzone b{ color:var(--text); }
+.upload-list{ margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+.upload-row{ display:flex; align-items:center; gap:10px; font-size:12.5px; background:var(--surface-2); border:1px solid var(--border); border-radius:7px; padding:7px 10px; }
+.upload-row .uname{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+.upload-row .rm{ background:none; border:none; color:var(--text-3); cursor:pointer; font-size:15px; line-height:1; }
+.upload-row .rm:hover{ color:var(--critical); }
+.uprog{ width:90px; height:6px; border-radius:3px; background:var(--surface-3); overflow:hidden; flex-shrink:0; }
+.uprog-bar{ height:100%; background:var(--accent); border-radius:3px; transition:width .15s; }
+.link-row input:first-child{max-width:170px;}
+
+.order-total-bar{
+  position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:14px 18px;
+  display:flex; justify-content:space-between; align-items:center; border-radius:0 0 var(--radius) var(--radius); gap:12px; flex-wrap:wrap;
+}
+.order-total-bar .sum{font-family:var(--font-mono); font-size:20px; font-weight:700;}
+.order-total-bar .due{font-size:12.5px; color:var(--text-2);}
+
+/* ---- modal ---- */
+.modal-backdrop{position:fixed; inset:0; background:rgba(15,20,23,.5); display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; z-index:50;}
+.modal{background:var(--surface); border-radius:var(--radius); max-width:640px; width:100%; box-shadow:var(--shadow); border:1px solid var(--border);}
+.modal-head{padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;}
+.modal-body{padding:18px 20px; display:flex; flex-direction:column; gap:14px;}
+.modal-close{background:none; border:none; font-size:20px; color:var(--text-3); cursor:pointer; line-height:1;}
+.modal-close:hover{color:var(--text);}
+.kv{display:grid; grid-template-columns:120px 1fr; gap:6px 10px; font-size:13.5px;}
+.kv b{color:var(--text-2); font-weight:600;}
+.stage-pill-row{display:flex; flex-wrap:wrap; gap:6px;}
+.stage-pill{padding:6px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); font-size:12.5px; font-weight:600; cursor:pointer; color:var(--text-2);}
+.stage-pill.current{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+
+.login-wrap{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+.login-box{max-width:400px; width:100%; text-align:center;}
+.login-box .word{font-family:var(--font-display); font-weight:700; font-size:34px;}
+.login-box .word em{font-style:normal; color:var(--accent);}
+.login-box .tag{font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--text-3); margin:4px 0 30px;}
+.role-choice{display:flex; flex-direction:column; gap:10px;}
+.role-btn{padding:16px; border-radius:12px; border:1px solid var(--border); background:var(--surface); text-align:left; cursor:pointer; box-shadow:var(--shadow);}
+.role-btn:hover{border-color:var(--accent);}
+.role-btn .t{font-weight:700; font-size:15px;}
+.role-btn .d{font-size:12.5px; color:var(--text-2); margin-top:2px;}
+.pin-dots{display:flex; gap:10px; justify-content:center; margin:14px 0;}
+.pin-dots span{width:12px; height:12px; border-radius:50%; border:1.5px solid var(--border);}
+.pin-dots span.f{background:var(--accent); border-color:var(--accent);}
+.keypad{display:grid; grid-template-columns:repeat(3,1fr); gap:9px; max-width:240px; margin:0 auto;}
+.keypad button{padding:15px 0; font-size:18px; font-weight:600; border-radius:10px; border:1px solid var(--border); background:var(--surface); cursor:pointer;}
+.keypad button:hover{background:var(--surface-2);}
+.staff-pick{display:flex; flex-direction:column; gap:7px; max-height:320px; overflow-y:auto;}
+.staff-pick button{padding:11px 14px; border-radius:10px; border:1px solid var(--border); background:var(--surface); text-align:left; cursor:pointer;}
+.staff-pick button:hover{border-color:var(--accent);}
+.toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--slate); color:#fff; padding:11px 18px; border-radius:9px; font-size:13.5px; box-shadow:var(--shadow); z-index:100; font-weight:600;}
+.banner{background:var(--warn-soft); color:var(--warn-ink); padding:9px 16px; font-size:12.5px; font-weight:600; text-align:center;}
+.section-head{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
+.empty-state{padding:50px 20px; text-align:center; color:var(--text-3);}
+.demo-tag{font-size:10px; background:var(--surface-3); color:var(--text-3); padding:1px 6px; border-radius:4px; margin-left:6px; font-weight:700; letter-spacing:.3px;}
+.pl-cat{font-weight:700; font-size:13px; margin:16px 0 6px; color:var(--text); text-transform:uppercase; letter-spacing:.4px;}
+.pl-cat:first-child{margin-top:0;}
+@media (max-width:880px){
+  .sidebar{display:none;}
+  .content{padding:16px;}
+  .topbar{padding:12px 16px;}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ============================= DEFAULTS ============================= */
+var DEFAULT_CONFIG = {
+  labName: 'IDEAL',
+  stages: ['Новый','Дизайн (CAD)','Фрезеровка / Печать','Спекание / Обработка','Готово','Выдан'],
+  deadlineTiers: [
+    {maxUnits:7, days:4},
+    {maxUnits:14, days:6},
+    {maxUnits:24, days:8},
+    {maxUnits:9999, days:10}
+  ],
+  urgentDays: 2,
+  urgentMultiplier: 1.4,
+  techSharePercent: 30
+};
+
+var DEFAULT_PRICE_LIST = [
+  {id:'1.1', category:'Коронки', name:'Цельнофрезерованная анатомическая коронка ZrO2', price:6000, unit:'tooth'},
+  {id:'1.2', category:'Коронки', name:'Коронка ZrO2 на винтовой фиксации', price:6000, unit:'tooth', addon:1500, addonLabel:'Титановое основание с винтом'},
+  {id:'1.3', category:'Коронки', name:'Коронка ZrO2-PRETTAU (редуцирование + e.max)', price:8000, unit:'tooth'},
+  {id:'1.4', category:'Коронки', name:'Коронка ZrO2-PRETTAU на винтовой фиксации (+e.max)', price:8000, unit:'tooth', addon:1500, addonLabel:'Титановое основание с винтом'},
+  {id:'1.5', category:'Коронки', name:'Цельнофрезерованная коронка PMMA-Multi', price:1200, unit:'tooth'},
+  {id:'1.6', category:'Коронки', name:'Коронка PMMA-Multi на винтовой фиксации', price:1200, unit:'tooth', addon:1500, addonLabel:'Титановое основание с винтом'},
+  {id:'2.1', category:'Виниры', name:'Винир E.max STANDART', price:9000, unit:'tooth'},
+  {id:'2.2', category:'Виниры', name:'Винир E.max Premium на рефракторе', price:12000, unit:'tooth'},
+  {id:'3.1', category:'Вкладки', name:'Вкладка окклюзионная e.max (OnLay)', price:6500, unit:'tooth'},
+  {id:'3.2', category:'Вкладки', name:'Вкладка культевая ZrO2 (InLay)', price:6000, unit:'tooth'},
+  {id:'4.1', category:'Индивидуальные абатменты', name:'Инд. абатмент цельноциркониевый', price:4500, unit:'tooth', addon:0, addonLabel:''},
+  {id:'4.2', category:'Индивидуальные абатменты', name:'Инд. абатмент цельнофрезерованный Premill', price:5500, unit:'tooth'},
+  {id:'5.1', category:'Балочные конструкции', name:'Балка Титан на 4-х имплантах', price:50000, unit:'case'},
+  {id:'5.2', category:'Балочные конструкции', name:'Балка Титан на 5-6-ти имплантах', price:55000, unit:'case'},
+  {id:'5.3', category:'Балочные конструкции', name:'Балка селективное спекание на 4-х имплантах', price:25000, unit:'case'},
+  {id:'5.4', category:'Балочные конструкции', name:'Балка селективное спекание на 5-6 имплантах', price:30000, unit:'case'},
+  {id:'5.5', category:'Балочные конструкции', name:'Супраструктура на балочную конструкцию', price:80000, unit:'case'},
+  {id:'6.1', category:'Хирургические шаблоны (3D-печать)', name:'Хирургический шаблон без втулок', price:5000, unit:'case'},
+  {id:'6.2', category:'Хирургические шаблоны (3D-печать)', name:'Доп. отверстие под имплант', price:1000, unit:'case'},
+  {id:'7.1', category:'3D печать', name:'Диагностические модели ВНЧС', price:3000, unit:'case'},
+  {id:'7.2', category:'3D печать', name:'WaxUp (моделировка + печать), 1 челюсть', price:5000, unit:'case'},
+  {id:'8.1', category:'Прочее', name:'Восковой базис с прикусными шаблонами', price:200, unit:'case'},
+  {id:'8.2', category:'Прочее', name:'Диагностическая модель из гипса III класса', price:300, unit:'case'},
+  {id:'8.3', category:'Прочее', name:'Титановое основание Multi-Unit Аналог Geo', price:2500, unit:'tooth'},
+  {id:'8.4', category:'Прочее', name:'Титановое основание Аналог Geo', price:1500, unit:'tooth'},
+  {id:'8.5', category:'Прочее', name:'Искусственная десна Aidite (1 зуб)', price:500, unit:'tooth'}
+];
+
+var STAFF_ROLES = {
+  admin:{label:'Админ', money:true},
+  accountant:{label:'Бухгалтер', money:true},
+  technician:{label:'Техник', money:false},
+  miller:{label:'Фрезеровщик', money:false}
+};
+
+var TEETH_Q = {
+  q1:[18,17,16,15,14,13,12,11], // upper right -> center (reversed visually)
+  q2:[21,22,23,24,25,26,27,28], // upper left
+  q4:[48,47,46,45,44,43,42,41], // lower right -> center (reversed)
+  q3:[31,32,33,34,35,36,37,38]  // lower left
+};
+
+/* ============================= STATE ============================= */
+var state = {
+  db:null, dbTried:false,
+  session: null,
+  view: 'board',
+  data:{staff:[], doctors:[], orders:[], payments:[], expenses:[], timeoff:[], priceList:[], config:null},
+  ui:{ openOrderId:null, draftItems:[], loginStep:'choice', loginStaffId:null, pinBuf:'', docPhone:'', staffForm:null, doctorForm:null, plEdit:false, toast:null, orderFilter:'', boardOnlyMine:true, newOrderDoctorMode:'existing', linkRows:[{label:'',url:''}], uploadFiles:[], settingsDraft:null,
+       orderFields:{patientName:'', doctorId:'', newDoctorName:'', newDoctorClinic:'', newDoctorPhone:'', notes:''} }
+};
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function esc(s){ if(s===undefined||s===null) return ''; return String(s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function fmtMoney(n){ n = Math.round(n||0); return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' сом'; }
+function fmtDate(iso){ if(!iso) return '—'; var d=new Date(iso+'T00:00:00'); if(isNaN(d)) return iso; var dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0'); return dd+'.'+mm+'.'+d.getFullYear(); }
+function todayIso(){ return new Date().toISOString().slice(0,10); }
+function addDays(iso, n){ var d = iso? new Date(iso+'T00:00:00') : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000); }
+function toast(msg){ state.ui.toast = msg; render(); setTimeout(function(){ state.ui.toast=null; render(); }, 2600); }
+
+function cfg(){ return state.data.config || DEFAULT_CONFIG; }
+
+/* ============================= INIT / API DB CLIENT ============================= */
+// Thin client that mimics the collection/doc interface the app was built
+// against, backed by the standalone REST API + Socket.IO (see server/).
+function createApiDb(){
+  var socket = (typeof io === 'function') ? io({transports:['websocket','polling']}) : null;
+  var listeners = []; // {collection, cb}
+  if(socket){
+    socket.on('change', function(evt){
+      listeners.forEach(function(l){ if(l.collection===evt.collection) l.cb(); });
+    });
+  }
+  async function req(method, url, body){
+    var res = await fetch(url, {
+      method: method,
+      headers: body!==undefined ? {'Content-Type':'application/json'} : undefined,
+      body: body!==undefined ? JSON.stringify(body) : undefined
+    });
+    if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} throw new Error('HTTP '+res.status+' '+t); }
+    return res.json();
+  }
+  function makeDocRef(coll, id){
+    return {
+      id: id,
+      get: async function(){
+        var r = await req('GET', '/api/doc/'+coll+'/'+encodeURIComponent(id));
+        return { exists: r.exists, data: function(){ return r.data; } };
+      },
+      set: async function(data){ await req('PUT', '/api/doc/'+coll+'/'+encodeURIComponent(id), data); },
+      update: async function(patch){ await req('PATCH', '/api/doc/'+coll+'/'+encodeURIComponent(id), patch); },
+      delete: async function(){ await req('DELETE', '/api/doc/'+coll+'/'+encodeURIComponent(id)); },
+      onSnapshot: function(next, err){
+        var self = this;
+        function pull(){ self.get().then(next).catch(function(e){ if(err) err(e); }); }
+        listeners.push({ collection: coll, cb: pull });
+        pull();
+      }
+    };
+  }
+  function makeCollRef(coll, opts){
+    opts = opts || {};
+    return {
+      doc: function(id){ return makeDocRef(coll, id || (Date.now().toString(36)+Math.random().toString(36).slice(2,8))); },
+      add: async function(data){ var r = await req('POST', '/api/doc/'+coll, data); return { id: r.id }; },
+      orderBy: function(field, dir){ return makeCollRef(coll, Object.assign({}, opts, {orderBy:field, dir:dir||'asc'})); },
+      limit: function(n){ return makeCollRef(coll, Object.assign({}, opts, {limit:n})); },
+      get: async function(){
+        var qs = [];
+        if(opts.orderBy) qs.push('orderBy='+encodeURIComponent(opts.orderBy)+'&dir='+encodeURIComponent(opts.dir||'asc'));
+        if(opts.limit) qs.push('limit='+opts.limit);
+        var rows = await req('GET', '/api/collection/'+coll+(qs.length?'?'+qs.join('&'):''));
+        return { docs: rows.map(function(r){ return { id:r.id, data:function(){ return r.data; } }; }), empty: rows.length===0 };
+      },
+      onSnapshot: function(next, err){
+        var self = this;
+        function pull(){ self.get().then(next).catch(function(e){ if(err) err(e); }); }
+        listeners.push({ collection: coll, cb: pull });
+        pull();
+      }
+    };
+  }
+  return {
+    doc: function(path){ var parts=path.split('/'); return makeDocRef(parts[0], parts.slice(1).join('/')); },
+    collection: function(path){ return makeCollRef(path); }
+  };
+}
+
+async function init(){
+  render();
+  var db = null;
+  try{ db = createApiDb(); }catch(e){ console.error(e); db = null; }
+  state.db = db; state.dbTried = true;
+  if(!db){ render(); return; }
+
+  db.doc('settings/config').onSnapshot(function(snap){
+    state.data.config = snap.exists ? Object.assign({}, DEFAULT_CONFIG, snap.data()) : DEFAULT_CONFIG;
+    render();
+  }, function(e){ console.error(e); });
+
+  db.doc('settings/priceList').onSnapshot(function(snap){
+    state.data.priceList = snap.exists && snap.data().items ? snap.data().items : DEFAULT_PRICE_LIST;
+    render();
+  }, function(e){ console.error(e); });
+
+  db.collection('staff').onSnapshot(function(qs){
+    state.data.staff = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    restoreSession();
+    render();
+  }, function(e){ console.error(e); });
+
+  db.collection('doctors').onSnapshot(function(qs){
+    state.data.doctors = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    restoreSession();
+    render();
+  }, function(e){ console.error(e); });
+
+  db.collection('orders').orderBy('createdAt','desc').limit(500).onSnapshot(function(qs){
+    state.data.orders = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    render();
+  }, function(e){ console.error(e); });
+
+  db.collection('payments').onSnapshot(function(qs){
+    state.data.payments = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    render();
+  }, function(e){ console.error(e); });
+
+  db.collection('expenses').onSnapshot(function(qs){
+    state.data.expenses = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    render();
+  }, function(e){ console.error(e); });
+
+  db.collection('timeoff').onSnapshot(function(qs){
+    state.data.timeoff = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    render();
+  }, function(e){ console.error(e); });
+}
+
+/* ============================= SESSION ============================= */
+function restoreSession(){
+  if(state.session) return;
+  try{
+    var raw = localStorage.getItem('ideal_session');
+    if(!raw) return;
+    var s = JSON.parse(raw);
+    if(s.type==='staff'){
+      var st = state.data.staff.filter(function(x){return x.id===s.staffId && x.active!==false;})[0];
+      if(st) state.session = {type:'staff', staff:st};
+    } else if(s.type==='doctor'){
+      var doc = state.data.doctors.filter(function(x){return x.id===s.docId;})[0];
+      if(doc) state.session = {type:'doctor', doctor:doc};
+    }
+  }catch(e){}
+}
+function saveSession(){
+  try{
+    if(!state.session){ localStorage.removeItem('ideal_session'); return; }
+    if(state.session.type==='staff') localStorage.setItem('ideal_session', JSON.stringify({type:'staff', staffId:state.session.staff.id}));
+    else localStorage.setItem('ideal_session', JSON.stringify({type:'doctor', docId:state.session.doctor.id}));
+  }catch(e){}
+}
+function logout(){ state.session=null; state.ui.loginStep='choice'; state.ui.loginStaffId=null; state.ui.pinBuf=''; saveSession(); render(); }
+
+/* ============================= BUSINESS LOGIC ============================= */
+function calcDueDays(units, urgent){
+  var c = cfg();
+  if(urgent) return c.urgentDays;
+  var tiers = c.deadlineTiers || DEFAULT_CONFIG.deadlineTiers;
+  for(var i=0;i<tiers.length;i++){ if(units <= tiers[i].maxUnits) return tiers[i].days; }
+  return tiers[tiers.length-1].days;
+}
+function genOrderCode(){
+  var d = new Date();
+  var ymd = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  var suf = Math.random().toString(36).slice(2,6).toUpperCase();
+  return 'IDEAL-'+ymd+'-'+suf;
+}
+function orderPaid(orderId){
+  return state.data.payments.filter(function(p){return p.orderId===orderId;}).reduce(function(a,p){return a+(p.amount||0);},0);
+}
+function dueClass(dueDate, stage){
+  var stages = cfg().stages;
+  if(stage===stages[stages.length-1]) return 'due-ok';
+  var d = daysBetween(todayIso(), dueDate);
+  if(d < 0) return 'due-late';
+  if(d <= 1) return 'due-soon';
+  return 'due-ok';
+}
+function dueLabel(dueDate, stage){
+  var stages = cfg().stages;
+  if(stage===stages[stages.length-1]) return 'Выдан';
+  var d = daysBetween(todayIso(), dueDate);
+  if(d < 0) return 'Просрочен на ' + Math.abs(d) + ' дн.';
+  if(d === 0) return 'Срок сегодня';
+  if(d === 1) return 'Срок завтра';
+  return 'Срок через ' + d + ' дн.';
+}
+function staffName(id){ var s = state.data.staff.filter(function(x){return x.id===id;})[0]; return s? s.name : '—'; }
+function canSeeMoney(){ if(!state.session || state.session.type!=='staff') return false; var r = STAFF_ROLES[state.session.staff.role]; return r && r.money; }
+function isAdmin(){ return state.session && state.session.type==='staff' && state.session.staff.role==='admin'; }
+
+/* ============================= RENDER ============================= */
+function render(){
+  var app = document.getElementById('app');
+  if(!state.session){ app.innerHTML = renderLogin(); return; }
+  if(state.session.type==='doctor'){ app.innerHTML = renderDoctorShell(); }
+  else { app.innerHTML = renderStaffShell(); }
+  if(state.ui.toast){
+    var t = document.createElement('div'); t.className='toast'; t.textContent=state.ui.toast; app.appendChild(t);
+  }
+  var modal = renderModal();
+  if(modal){ var wrap=document.createElement('div'); wrap.innerHTML=modal; app.appendChild(wrap.firstElementChild); }
+}
+
+/* ---------- LOGIN ---------- */
+function renderLogin(){
+  var u = state.ui;
+  var body = '';
+  if(!state.dbTried){
+    body = '<p class="muted">Загрузка…</p>';
+  } else if(!state.db){
+    body = '<div class="banner" style="border-radius:10px; margin-bottom:16px;">Нет соединения с сервером. Проверьте интернет и обновите страницу.</div>' + roleChoiceHtml();
+  } else if(u.loginStep==='choice'){
+    body = roleChoiceHtml();
+  } else if(u.loginStep==='staffPick'){
+    var actives = state.data.staff.filter(function(s){return s.active!==false;});
+    body = '<div class="staff-pick">' + actives.map(function(s){
+      return '<button data-act="pickStaff" data-id="'+s.id+'">'+esc(s.name)+' <span class="faint">— '+(STAFF_ROLES[s.role]?STAFF_ROLES[s.role].label:s.role)+'</span></button>';
+    }).join('') + '</div><div style="margin-top:14px;"><button class="btn ghost" data-act="loginBack">← Назад</button></div>';
+  } else if(u.loginStep==='pin'){
+    var st = state.data.staff.filter(function(s){return s.id===u.loginStaffId;})[0];
+    body = '<p style="font-weight:700; margin-bottom:2px;">'+esc(st?st.name:'')+'</p><p class="hint" style="margin-bottom:10px;">Введите PIN-код</p>'+
+      '<div class="pin-dots">'+[0,1,2,3].map(function(i){return '<span class="'+(u.pinBuf.length>i?'f':'')+'"></span>';}).join('')+'</div>'+
+      '<div class="keypad">'+[1,2,3,4,5,6,7,8,9].map(function(n){return '<button data-act="pinDigit" data-d="'+n+'">'+n+'</button>';}).join('')+
+      '<button data-act="loginBack">←</button><button data-act="pinDigit" data-d="0">0</button><button data-act="pinClear">⌫</button></div>';
+  } else if(u.loginStep==='docPhone'){
+    body = '<form data-act="submitDocPhone" class="grid" style="gap:12px; text-align:left;">'+
+      '<label class="field">Номер телефона<input type="tel" name="phone" placeholder="0700 123 456" required autofocus></label>'+
+      '<button class="btn primary" type="submit">Продолжить</button>'+
+      '<button class="btn ghost" type="button" data-act="loginBack">← Назад</button></form>';
+  } else if(u.loginStep==='docRegister'){
+    body = '<form data-act="submitDocRegister" class="grid" style="gap:12px; text-align:left;">'+
+      '<p class="hint">Первый вход — укажите, пожалуйста, ваши данные.</p>'+
+      '<label class="field">Ваше имя<input type="text" name="name" required autofocus></label>'+
+      '<label class="field">Клиника<input type="text" name="clinic" required></label>'+
+      '<button class="btn primary" type="submit">Войти</button>'+
+      '<button class="btn ghost" type="button" data-act="loginBack">← Назад</button></form>';
+  }
+  return '<div class="login-wrap"><div class="login-box">'+
+    '<div class="word">IDEAL<em>.</em></div><div class="tag">CAD-CAM Lab · Учёт заказов</div>'+
+    body+'</div></div>';
+}
+function roleChoiceHtml(){
+  return '<div class="role-choice">'+
+    '<button class="role-btn" data-act="chooseRole" data-r="doctor"><div class="t">Я врач / клиника</div><div class="d">Оформить заказ и следить за статусом</div></button>'+
+    '<button class="role-btn" data-act="chooseRole" data-r="staff"><div class="t">Я сотрудник лаборатории</div><div class="d">Доска заказов, финансы, управление</div></button>'+
+    '</div>';
+}
+
+/* ---------- STAFF SHELL ---------- */
+function navDefsStaff(){
+  var role = state.session.staff.role;
+  var items = [
+    {id:'board', ic:'▦', label:'Доска заказов'},
+    {id:'orders', ic:'≡', label:'Все заказы'}
+  ];
+  if(STAFF_ROLES[role] && STAFF_ROLES[role].money){
+    items.push({id:'finance', ic:'₮', label:'Финансы'});
+  }
+  items.push({id:'schedule', ic:'◔', label:'График / отгулы'});
+  if(role==='admin'){
+    items.push({id:'staffadmin', ic:'☺', label:'Сотрудники'});
+    items.push({id:'doctorsadmin', ic:'✚', label:'Врачи'});
+    items.push({id:'pricelist', ic:'§', label:'Прайс-лист'});
+    items.push({id:'settings', ic:'⚙', label:'Настройки'});
+  }
+  return items;
+}
+function renderStaffShell(){
+  var items = navDefsStaff();
+  var nav = items.map(function(it){
+    return '<div class="navitem'+(state.view===it.id?' active':'')+'" data-act="nav" data-v="'+it.id+'"><span class="ic">'+it.ic+'</span>'+it.label+'</div>';
+  }).join('');
+  var v = state.view;
+  var viewHtml;
+  if(v==='board') viewHtml = renderBoard();
+  else if(v==='orders') viewHtml = renderOrdersList();
+  else if(v==='finance' && canSeeMoney()) viewHtml = renderFinance();
+  else if(v==='schedule') viewHtml = renderSchedule();
+  else if(v==='staffadmin' && isAdmin()) viewHtml = renderStaffAdmin();
+  else if(v==='doctorsadmin' && isAdmin()) viewHtml = renderDoctorsAdmin();
+  else if(v==='pricelist' && isAdmin()) viewHtml = renderPriceListAdmin();
+  else if(v==='settings' && isAdmin()) viewHtml = renderSettingsAdmin();
+  else if(v==='neworder') viewHtml = renderOrderForm('staff');
+  else viewHtml = renderBoard();
+
+  var title = {board:'Доска заказов', orders:'Все заказы', finance:'Финансы', schedule:'График и отгулы', staffadmin:'Сотрудники', doctorsadmin:'Врачи', pricelist:'Прайс-лист', settings:'Настройки', neworder:'Новый заказ'}[v] || 'IDEAL';
+
+  return '<div class="shell">'+
+    '<div class="sidebar">'+
+      '<div class="brand"><div class="word">IDEAL<em>.</em></div><div class="stripe"></div><div class="tag">CAD-CAM Lab</div></div>'+
+      '<div class="navgroup-label">Разделы</div>'+nav+
+      '<div class="sidebar-foot">'+
+        '<div class="who"><b>'+esc(state.session.staff.name)+'</b>'+(STAFF_ROLES[state.session.staff.role]?STAFF_ROLES[state.session.staff.role].label:'')+'</div>'+
+        '<button class="logout-btn" data-act="logout">Выйти</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="main">'+
+      '<div class="topbar"><h1>'+title+'</h1><div class="btn-row"><button class="btn primary" data-act="openNewOrder">+ Новый заказ</button></div></div>'+
+      '<div class="content"><div class="content-inner">'+viewHtml+'</div></div>'+
+    '</div></div>';
+}
+
+/* ---------- BOARD ---------- */
+function renderBoard(){
+  var stages = cfg().stages;
+  var orders = state.data.orders;
+  var role = state.session.staff.role;
+  var onlyMine = state.ui.boardOnlyMine && (role==='technician' || role==='miller');
+  if(onlyMine){
+    var myId = state.session.staff.id;
+    orders = orders.filter(function(o){ return o.assignedStaffId===myId || o.assignedMillerId===myId; });
+  }
+  var moneyOk = canSeeMoney();
+  var toggle = (role==='technician'||role==='miller') ? '<label class="check"><input type="checkbox" data-act="toggleMine" '+(state.ui.boardOnlyMine?'checked':'')+'> Только мои заказы</label>' : '';
+
+  var cols = stages.map(function(stage, idx){
+    var inStage = orders.filter(function(o){ return o.stage===stage; });
+    var sum = inStage.reduce(function(a,o){return a+(o.total||0);},0);
+    var cards = inStage.map(function(o){ return renderCard(o, moneyOk); }).join('');
+    return '<div class="column">'+
+      '<div class="column-head"><span class="name">'+esc(stage)+'</span><span class="count">'+inStage.length+'</span></div>'+
+      (moneyOk ? '<div class="column-sum">'+fmtMoney(sum)+'</div>' : '')+
+      '<div class="column-body">'+(cards || '<div class="column-empty">Нет заказов</div>')+'</div>'+
+    '</div>';
+  }).join('');
+
+  return '<div class="section-head">'+toggle+'</div><div class="board">'+cols+'</div>';
+}
+function renderCard(o, moneyOk){
+  var dc = dueClass(o.dueDate, o.stage);
+  var paid = orderPaid(o.id);
+  var assignee = o.assignedStaffId ? staffName(o.assignedStaffId) : (o.assignedMillerId ? staffName(o.assignedMillerId) : null);
+  return '<div class="card '+dc+'" data-act="openOrder" data-id="'+o.id+'">'+
+    '<div class="code">'+esc(o.code)+(o.urgent?' <span class="badge crit" style="margin-left:4px;">срочно</span>':'')+'</div>'+
+    '<div class="pat">'+esc(o.patientName)+'</div>'+
+    '<div class="doc">'+esc(o.doctorName||'')+(o.clinicName?' · '+esc(o.clinicName):'')+'</div>'+
+    (assignee ? '<div class="doc">Исполнитель: '+esc(assignee)+'</div>' : '')+
+    '<div class="metaRow"><span class="due '+dc+'">'+dueLabel(o.dueDate, o.stage)+'</span></div>'+
+    (moneyOk ? '<div class="money">'+fmtMoney(o.total)+' · оплачено '+fmtMoney(paid)+'</div>' : '')+
+  '</div>';
+}
+
+/* ---------- ORDERS LIST ---------- */
+function renderOrdersList(){
+  var moneyOk = canSeeMoney();
+  var q = (state.ui.orderFilter||'').toLowerCase();
+  var orders = state.data.orders.filter(function(o){
+    if(!q) return true;
+    return (o.code+' '+o.patientName+' '+(o.doctorName||'')+' '+(o.clinicName||'')).toLowerCase().indexOf(q) > -1;
+  });
+  var rows = orders.map(function(o){
+    var dc = dueClass(o.dueDate, o.stage);
+    var paid = orderPaid(o.id);
+    return '<tr>'+
+      '<td class="mono" data-act="openOrder" data-id="'+o.id+'" style="cursor:pointer;color:var(--accent);font-weight:600;">'+esc(o.code)+'</td>'+
+      '<td>'+esc(o.patientName)+'</td>'+
+      '<td>'+esc(o.doctorName||'')+'<div class="faint">'+esc(o.clinicName||'')+'</div></td>'+
+      '<td><span class="badge neutral">'+esc(o.stage)+'</span></td>'+
+      '<td><span class="badge '+(dc==='due-late'?'crit':dc==='due-soon'?'warn':'good')+'">'+fmtDate(o.dueDate)+'</span></td>'+
+      (moneyOk ? '<td class="mono">'+fmtMoney(o.total)+'</td><td class="mono">'+fmtMoney(paid)+'</td>' : '')+
+    '</tr>';
+  }).join('');
+  return '<div class="section-head"><input type="text" placeholder="Поиск: код, пациент, врач…" style="max-width:280px;" data-act="filterOrders" value="'+esc(state.ui.orderFilter||'')+'"></div>'+
+    '<div class="table-wrap"><table><thead><tr><th>Код</th><th>Пациент</th><th>Врач / клиника</th><th>Статус</th><th>Срок</th>'+(moneyOk?'<th>Сумма</th><th>Оплачено</th>':'')+'</tr></thead><tbody>'+
+    (rows || '<tr><td colspan="7" class="empty-state">Заказов пока нет</td></tr>')+'</tbody></table></div>';
+}
+
+/* ---------- ORDER DETAIL MODAL ---------- */
+function renderModal(){
+  if(!state.ui.openOrderId) return '';
+  var o = state.data.orders.filter(function(x){return x.id===state.ui.openOrderId;})[0];
+  if(!o) return '';
+  var moneyOk = canSeeMoney();
+  var stages = cfg().stages;
+  var pills = stages.map(function(s){ return '<span class="stage-pill'+(s===o.stage?' current':'')+'" data-act="setStage" data-id="'+o.id+'" data-s="'+esc(s)+'">'+esc(s)+'</span>'; }).join('');
+  var itemsHtml = (o.items||[]).map(function(li){
+    var teethStr = li.unit==='tooth' ? (li.teeth||[]).join(', ') : (li.qty+' шт.');
+    return '<tr><td>'+esc(li.name)+(li.addon?'<div class="faint">+ доп. основание</div>':'')+'</td><td class="mono">'+teethStr+'</td>'+(moneyOk?'<td class="mono">'+fmtMoney(li.lineTotal)+'</td>':'')+'</tr>';
+  }).join('');
+  var linksHtml = (o.links||[]).filter(function(l){return l.url;}).map(function(l){ return '<div><a href="'+esc(l.url)+'" target="_blank" rel="noopener" style="color:var(--accent);">'+esc(l.label||'Ссылка')+' →</a></div>'; }).join('') || '<span class="faint">Нет ссылок</span>';
+
+  var techs = state.data.staff.filter(function(s){return s.role==='technician' && s.active!==false;});
+  var millers = state.data.staff.filter(function(s){return s.role==='miller' && s.active!==false;});
+  var assignBlock = '';
+  if(state.session.type==='staff'){
+    assignBlock = '<div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">'+
+      '<label class="field">Техник<select data-act="assignStaff" data-id="'+o.id+'"><option value="">— не назначен —</option>'+
+        techs.map(function(t){return '<option value="'+t.id+'"'+(o.assignedStaffId===t.id?' selected':'')+'>'+esc(t.name)+'</option>';}).join('')+
+      '</select></label>'+
+      '<label class="field">Фрезеровщик<select data-act="assignMiller" data-id="'+o.id+'"><option value="">— не назначен —</option>'+
+        millers.map(function(t){return '<option value="'+t.id+'"'+(o.assignedMillerId===t.id?' selected':'')+'>'+esc(t.name)+'</option>';}).join('')+
+      '</select></label></div>';
+  }
+
+  var moneyBlock = '';
+  if(moneyOk){
+    var paid = orderPaid(o.id);
+    var pays = state.data.payments.filter(function(p){return p.orderId===o.id;});
+    moneyBlock = '<div style="border-top:1px solid var(--border); padding-top:12px;">'+
+      '<div class="kv"><b>Сумма заказа</b><span class="mono">'+fmtMoney(o.total)+(o.urgent?' <span class="badge crit">срочно ×'+cfg().urgentMultiplier+'</span>':'')+'</span>'+
+      '<b>Оплачено</b><span class="mono">'+fmtMoney(paid)+'</span>'+
+      '<b>Остаток</b><span class="mono">'+fmtMoney(o.total-paid)+'</span>'+
+      '<b>Технику (начислено)</b><span class="mono">'+fmtMoney(o.techPayout!=null?o.techPayout:Math.round(o.total*cfg().techSharePercent/100))+(o.techPayout!=null?'':' <span class="faint">(предложено)</span>')+'</span></div>'+
+      (pays.length? '<div style="margin-top:8px;">'+pays.map(function(p){return '<div class="faint">'+fmtDate(p.date)+' — '+fmtMoney(p.amount)+' ('+esc(p.method||'')+')</div>';}).join('')+'</div>' : '')+
+      '<form data-act="addPayment" data-id="'+o.id+'" style="display:flex; gap:8px; margin-top:10px;">'+
+        '<input type="number" name="amount" placeholder="Сумма оплаты" min="1" required style="flex:1;">'+
+        '<button class="btn sm primary" type="submit">Добавить оплату</button></form>'+
+      '<form data-act="setPayout" data-id="'+o.id+'" style="display:flex; gap:8px; margin-top:8px;">'+
+        '<input type="number" name="payout" placeholder="Выплата технику, сом" value="'+(o.techPayout!=null?o.techPayout:'')+'" style="flex:1;">'+
+        '<button class="btn sm ghost" type="submit">Сохранить</button></form>'+
+    '</div>';
+  }
+
+  return '<div class="modal-backdrop" data-act="closeModal"><div class="modal" data-act="noop">'+
+    '<div class="modal-head"><div><b class="mono">'+esc(o.code)+'</b> <span class="faint">· создан '+fmtDate(o.createdAt.slice(0,10))+'</span></div><button class="modal-close" data-act="closeModal">×</button></div>'+
+    '<div class="modal-body">'+
+      '<div class="kv"><b>Пациент</b><span>'+esc(o.patientName)+'</span><b>Врач</b><span>'+esc(o.doctorName||'')+'</span><b>Клиника</b><span>'+esc(o.clinicName||'')+'</span><b>Срок</b><span class="'+dueClass(o.dueDate,o.stage)+'">'+fmtDate(o.dueDate)+' — '+dueLabel(o.dueDate,o.stage)+'</span></div>'+
+      '<div><div class="hint" style="margin-bottom:6px;">Этап производства</div><div class="stage-pill-row">'+pills+'</div></div>'+
+      assignBlock+
+      '<div><div class="hint" style="margin-bottom:6px;">Позиции заказа</div><div class="table-wrap"><table><thead><tr><th>Работа</th><th>Зубы / кол-во</th>'+(moneyOk?'<th>Сумма</th>':'')+'</tr></thead><tbody>'+itemsHtml+'</tbody></table></div></div>'+
+      '<div><div class="hint" style="margin-bottom:6px;">Файлы / ссылки на сканы</div>'+linksHtml+'</div>'+
+      (o.notes? '<div><div class="hint" style="margin-bottom:4px;">Примечание</div><div>'+esc(o.notes)+'</div></div>' : '')+
+      moneyBlock+
+    '</div></div></div>';
+}
+
+/* ---------- FINANCE ---------- */
+function renderFinance(){
+  var orders = state.data.orders;
+  var payments = state.data.payments;
+  var expenses = state.data.expenses;
+  var monthStart = todayIso().slice(0,7)+'-01';
+  var revenueMonth = payments.filter(function(p){return p.date>=monthStart;}).reduce(function(a,p){return a+p.amount;},0);
+  var outstanding = orders.reduce(function(a,o){return a+Math.max(0,(o.total||0)-orderPaid(o.id));},0);
+  var expenseMonth = expenses.filter(function(e){return e.date>=monthStart;}).reduce(function(a,e){return a+e.amount;},0);
+
+  var techs = state.data.staff.filter(function(s){return s.role==='technician'||s.role==='miller';});
+  var payoutRows = techs.map(function(t){
+    var accrued = orders.filter(function(o){return o.assignedStaffId===t.id||o.assignedMillerId===t.id;})
+      .reduce(function(a,o){return a+(o.techPayout!=null?o.techPayout:Math.round(o.total*cfg().techSharePercent/100));},0);
+    var paidOut = expenses.filter(function(e){return e.staffId===t.id && e.category==='Выплата технику';}).reduce(function(a,e){return a+e.amount;},0);
+    return '<tr><td>'+esc(t.name)+'</td><td class="mono">'+fmtMoney(accrued)+'</td><td class="mono">'+fmtMoney(paidOut)+'</td>'+
+      '<td class="mono">'+fmtMoney(accrued-paidOut)+'</td>'+
+      '<td><form data-act="payTech" data-id="'+t.id+'" style="display:flex; gap:6px;"><input type="number" name="amount" placeholder="сумма" min="1" style="width:100px;"><button class="btn sm primary" type="submit">Выплатить</button></form></td></tr>';
+  }).join('');
+
+  var expenseRows = expenses.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).map(function(e){
+    return '<tr><td>'+fmtDate(e.date)+'</td><td>'+esc(e.category)+(e.demo?'<span class="demo-tag">демо</span>':'')+'</td><td>'+esc(e.note||'')+'</td><td class="mono">'+fmtMoney(e.amount)+'</td></tr>';
+  }).join('');
+
+  return '<div class="stat-row">'+
+    '<div class="stat-tile good"><div class="label">Оплаты за месяц</div><div class="value">'+fmtMoney(revenueMonth)+'</div></div>'+
+    '<div class="stat-tile crit"><div class="label">Задолженность клиник</div><div class="value">'+fmtMoney(outstanding)+'</div></div>'+
+    '<div class="stat-tile"><div class="label">Расходы за месяц</div><div class="value">'+fmtMoney(expenseMonth)+'</div></div>'+
+    '<div class="stat-tile"><div class="label">Заказов активно</div><div class="value">'+orders.filter(function(o){return o.stage!==cfg().stages[cfg().stages.length-1];}).length+'</div></div>'+
+  '</div>'+
+  '<h3 style="margin-bottom:10px;">Выплаты техникам</h3>'+
+  '<div class="table-wrap" style="margin-bottom:22px;"><table><thead><tr><th>Сотрудник</th><th>Начислено</th><th>Выплачено</th><th>Остаток</th><th></th></tr></thead><tbody>'+
+  (payoutRows || '<tr><td colspan="5" class="empty-state">Нет технического персонала</td></tr>')+'</tbody></table></div>'+
+  '<div class="section-head"><h3>Расходы и авансы</h3></div>'+
+  '<form data-act="addExpense" class="card-panel" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px;">'+
+    '<label class="field" style="min-width:160px;">Категория<select name="category"><option>Логистика (выездной скан)</option><option>Материалы</option><option>Аванс сотруднику</option><option>Прочее</option></select></label>'+
+    '<label class="field" style="width:140px;">Сумма<input type="number" name="amount" min="1" required></label>'+
+    '<label class="field" style="flex:1; min-width:160px;">Комментарий<input type="text" name="note"></label>'+
+    '<button class="btn primary" type="submit">Добавить</button>'+
+  '</form>'+
+  '<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Категория</th><th>Комментарий</th><th>Сумма</th></tr></thead><tbody>'+
+  (expenseRows || '<tr><td colspan="4" class="empty-state">Расходов нет</td></tr>')+'</tbody></table></div>';
+}
+
+/* ---------- SCHEDULE / TIMEOFF ---------- */
+function renderSchedule(){
+  var isSelf = state.session.staff;
+  var canManageAll = isAdmin();
+  var list = state.data.timeoff.filter(function(t){ return canManageAll || t.staffId===isSelf.id; })
+    .sort(function(a,b){return (b.from||'').localeCompare(a.from||'');});
+  var rows = list.map(function(t){
+    return '<tr><td>'+esc(staffName(t.staffId))+'</td><td>'+esc(t.type)+'</td><td>'+fmtDate(t.from)+' – '+fmtDate(t.to)+'</td><td>'+esc(t.note||'')+'</td>'+
+      '<td><button class="btn sm ghost" data-act="delTimeoff" data-id="'+t.id+'">Удалить</button></td></tr>';
+  }).join('');
+  var staffOptions = canManageAll ? state.data.staff.filter(function(s){return s.active!==false;}).map(function(s){return '<option value="'+s.id+'">'+esc(s.name)+'</option>';}).join('') : '<option value="'+isSelf.id+'">'+esc(isSelf.name)+'</option>';
+  return '<form data-act="addTimeoff" class="card-panel" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">'+
+    (canManageAll? '<label class="field">Сотрудник<select name="staffId">'+staffOptions+'</select></label>' : '<input type="hidden" name="staffId" value="'+isSelf.id+'">')+
+    '<label class="field">Тип<select name="type"><option>Отгул</option><option>Отпуск</option><option>Больничный</option></select></label>'+
+    '<label class="field">С<input type="date" name="from" value="'+todayIso()+'" required></label>'+
+    '<label class="field">По<input type="date" name="to" value="'+todayIso()+'" required></label>'+
+    '<label class="field" style="flex:1; min-width:140px;">Комментарий<input type="text" name="note"></label>'+
+    '<button class="btn primary" type="submit">Добавить</button></form>'+
+    '<div class="table-wrap"><table><thead><tr><th>Сотрудник</th><th>Тип</th><th>Период</th><th>Комментарий</th><th></th></tr></thead><tbody>'+
+    (rows || '<tr><td colspan="5" class="empty-state">Записей нет</td></tr>')+'</tbody></table></div>';
+}
+
+/* ---------- STAFF ADMIN ---------- */
+function renderStaffAdmin(){
+  var rows = state.data.staff.map(function(s){
+    return '<tr><td>'+esc(s.name)+(s.demo?'<span class="demo-tag">демо</span>':'')+'</td><td>'+(STAFF_ROLES[s.role]?STAFF_ROLES[s.role].label:s.role)+'</td><td class="mono">'+esc(s.phone||'—')+'</td><td class="mono">'+esc(s.pin||'')+'</td>'+
+      '<td>'+(s.active!==false?'<span class="badge good">активен</span>':'<span class="badge neutral">неактивен</span>')+'</td>'+
+      '<td class="btn-row"><button class="btn sm ghost" data-act="toggleStaffActive" data-id="'+s.id+'">'+(s.active!==false?'Деактивировать':'Активировать')+'</button></td></tr>';
+  }).join('');
+  return '<form data-act="addStaff" class="card-panel" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">'+
+    '<label class="field">Имя<input type="text" name="name" required></label>'+
+    '<label class="field">Роль<select name="role">'+Object.keys(STAFF_ROLES).map(function(r){return '<option value="'+r+'">'+STAFF_ROLES[r].label+'</option>';}).join('')+'</select></label>'+
+    '<label class="field">Телефон<input type="tel" name="phone"></label>'+
+    '<label class="field">PIN (4 цифры)<input type="text" name="pin" pattern="[0-9]{4}" maxlength="4" required></label>'+
+    '<button class="btn primary" type="submit">Добавить сотрудника</button></form>'+
+    '<div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Телефон</th><th>PIN</th><th>Статус</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<p class="hint" style="margin-top:10px;">PIN — это простая защита входа внутри лаборатории, а не полноценная авторизация. Для реального контроля доступа по пользователям нужна отдельная функция платформы.</p>';
+}
+
+/* ---------- DOCTORS ADMIN ---------- */
+function renderDoctorsAdmin(){
+  var rows = state.data.doctors.map(function(d){
+    var cnt = state.data.orders.filter(function(o){return o.doctorPhone===d.id;}).length;
+    return '<tr><td>'+esc(d.name)+(d.demo?'<span class="demo-tag">демо</span>':'')+'</td><td>'+esc(d.clinic)+'</td><td class="mono">'+esc(d.phone==='demo'?'':d.phone||d.id)+'</td><td>'+cnt+'</td></tr>';
+  }).join('');
+  return '<form data-act="addDoctor" class="card-panel" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">'+
+    '<label class="field">Имя врача<input type="text" name="name" required></label>'+
+    '<label class="field">Клиника<input type="text" name="clinic" required></label>'+
+    '<label class="field">Телефон<input type="tel" name="phone" required></label>'+
+    '<button class="btn primary" type="submit">Добавить врача</button></form>'+
+    '<div class="table-wrap"><table><thead><tr><th>Врач</th><th>Клиника</th><th>Телефон</th><th>Заказов</th></tr></thead><tbody>'+(rows||'<tr><td colspan="4" class="empty-state">Врачей пока нет</td></tr>')+'</tbody></table></div>';
+}
+
+/* ---------- PRICE LIST ADMIN ---------- */
+function renderPriceListAdmin(){
+  var pl = state.data.priceList;
+  var cats = [];
+  pl.forEach(function(it){ if(cats.indexOf(it.category)===-1) cats.push(it.category); });
+  var body = cats.map(function(cat){
+    var items = pl.filter(function(it){return it.category===cat;});
+    var rows = items.map(function(it){
+      return '<tr><td>'+esc(it.name)+(it.addon?'<div class="faint">+ '+esc(it.addonLabel)+' ('+fmtMoney(it.addon)+')</div>':'')+'</td>'+
+        '<td>'+(it.unit==='tooth'?'за зуб':'за работу')+'</td>'+
+        '<td><form data-act="updatePrice" data-id="'+it.id+'" style="display:flex; gap:6px;"><input type="number" name="price" value="'+it.price+'" style="width:100px;"><button class="btn sm ghost" type="submit">✓</button></form></td>'+
+        '<td><button class="btn sm ghost" data-act="removePriceItem" data-id="'+it.id+'">Удалить</button></td></tr>';
+    }).join('');
+    return '<div class="pl-cat">'+esc(cat)+'</div><div class="table-wrap" style="margin-bottom:12px;"><table><thead><tr><th>Услуга</th><th>Ед.</th><th>Цена, сом</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }).join('');
+  return '<form data-act="addPriceItem" class="card-panel" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">'+
+    '<label class="field">Категория<input type="text" name="category" list="catlist" required></label><datalist id="catlist">'+cats.map(function(c){return '<option value="'+esc(c)+'">';}).join('')+'</datalist>'+
+    '<label class="field">Название<input type="text" name="name" required></label>'+
+    '<label class="field">Цена<input type="number" name="price" min="0" required></label>'+
+    '<label class="field">Единица<select name="unit"><option value="tooth">за зуб</option><option value="case">за работу</option></select></label>'+
+    '<button class="btn primary" type="submit">Добавить позицию</button></form>'+
+    body+
+    '<p class="hint" style="margin-top:6px;">Тотальные (комплексные) работы обговариваются заранее с гл. техником и начинаются после предоплаты 50% от стоимости. Срочное выполнение (2 дня) — надбавка ×'+cfg().urgentMultiplier+' ('+Math.round((cfg().urgentMultiplier-1)*100)+'%), настраивается в разделе «Настройки».</p>';
+}
+
+/* ---------- SETTINGS ---------- */
+function renderSettingsAdmin(){
+  var c = cfg();
+  var tiersHtml = c.deadlineTiers.map(function(t,i){
+    return '<div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">до <input type="number" data-tier="max" data-i="'+i+'" value="'+t.maxUnits+'" style="width:80px;"> единиц → <input type="number" data-tier="days" data-i="'+i+'" value="'+t.days+'" style="width:70px;"> дней <button class="btn sm ghost" type="button" data-act="removeTier" data-i="'+i+'">✕</button></div>';
+  }).join('');
+  var stagesHtml = c.stages.map(function(s,i){
+    return '<div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;"><input type="text" data-stage-i="'+i+'" value="'+esc(s)+'"> <button class="btn sm ghost" type="button" data-act="removeStage" data-i="'+i+'">✕</button></div>';
+  }).join('');
+  return '<form data-act="saveSettings" class="grid" style="gap:22px; max-width:560px;">'+
+    '<div class="card-panel"><h3 style="margin-bottom:10px;">Название лаборатории</h3><input type="text" name="labName" value="'+esc(c.labName)+'"></div>'+
+    '<div class="card-panel"><h3 style="margin-bottom:10px;">Этапы производства</h3>'+stagesHtml+
+      '<div class="btn-row" style="margin-top:6px;"><button class="btn sm ghost" type="button" data-act="addStageField">+ Добавить этап</button></div></div>'+
+    '<div class="card-panel"><h3 style="margin-bottom:10px;">Сроки выполнения (по количеству единиц)</h3>'+tiersHtml+
+      '<div class="btn-row" style="margin-top:6px;"><button class="btn sm ghost" type="button" data-act="addTierField">+ Добавить порог</button></div></div>'+
+    '<div class="card-panel"><h3 style="margin-bottom:10px;">Срочные заказы</h3>'+
+      '<label class="field">Срок для срочных, дней<input type="number" name="urgentDays" value="'+c.urgentDays+'" style="max-width:120px;"></label>'+
+      '<label class="field" style="margin-top:10px;">Наценка за срочность, ×<input type="number" step="0.1" name="urgentMultiplier" value="'+c.urgentMultiplier+'" style="max-width:120px;"></label></div>'+
+    '<div class="card-panel"><h3 style="margin-bottom:10px;">Оплата техникам</h3>'+
+      '<label class="field">Доля техника от суммы заказа по умолчанию, %<input type="number" name="techSharePercent" value="'+c.techSharePercent+'" style="max-width:120px;"></label></div>'+
+    '<div class="btn-row"><button class="btn primary" type="submit">Сохранить настройки</button>'+
+      '<button class="btn danger" type="button" data-act="clearDemo">Очистить демо-данные</button></div>'+
+  '</form>';
+}
+
+/* ---------- ORDER FORM (shared: doctor / staff) ---------- */
+function renderOrderForm(mode){
+  var pl = state.data.priceList;
+  var cats = [];
+  pl.forEach(function(it){ if(cats.indexOf(it.category)===-1) cats.push(it.category); });
+  var pickerOptions = cats.map(function(cat){
+    var items = pl.filter(function(it){return it.category===cat;});
+    return '<optgroup label="'+esc(cat)+'">'+items.map(function(it){return '<option value="'+it.id+'">'+esc(it.name)+' — '+fmtMoney(it.price)+'</option>';}).join('')+'</optgroup>';
+  }).join('');
+
+  var draftHtml = state.ui.draftItems.map(function(li, idx){
+    var itemDef = pl.filter(function(p){return p.id===li.itemId;})[0] || {};
+    var units, total;
+    if(li.unit==='tooth'){
+      units = li.teeth.length; total = units*(li.unitPrice + (li.addon?li.addonPrice:0));
+      var chart = renderMiniToothChart(li.teeth, idx);
+      return '<div class="draft-line"><div class="top"><div><div class="name">'+esc(li.name)+'</div><div class="price">'+fmtMoney(li.unitPrice)+' / зуб</div></div><button type="button" class="rm" data-act="rmDraft" data-idx="'+idx+'">×</button></div>'+
+        chart + (itemDef.addon? '<label class="check" style="margin-top:6px;"><input type="checkbox" data-act="toggleAddon" data-idx="'+idx+'" '+(li.addon?'checked':'')+'> + '+esc(itemDef.addonLabel)+' ('+fmtMoney(itemDef.addon)+' / шт)</label>' : '')+
+        '<div class="linetotal">'+units+' зуб(ов) · '+fmtMoney(total)+'</div></div>';
+    } else {
+      units = li.qty; total = units*(li.unitPrice + (li.addon?li.addonPrice:0));
+      return '<div class="draft-line"><div class="top"><div><div class="name">'+esc(li.name)+'</div><div class="price">'+fmtMoney(li.unitPrice)+' / работу</div></div><button type="button" class="rm" data-act="rmDraft" data-idx="'+idx+'">×</button></div>'+
+        '<div class="qtyBox">Количество: <input type="number" min="1" value="'+li.qty+'" data-act="setQty" data-idx="'+idx+'"></div>'+
+        '<div class="linetotal">'+fmtMoney(total)+'</div></div>';
+    }
+  }).join('') || '<p class="hint">Позиции ещё не добавлены — выберите работу выше.</p>';
+
+  var subtotal = 0, unitsTotal = 0;
+  state.ui.draftItems.forEach(function(li){
+    var u = li.unit==='tooth'? li.teeth.length : li.qty;
+    subtotal += u*(li.unitPrice + (li.addon?li.addonPrice:0));
+    unitsTotal += u;
+  });
+  var urgent = !!state.ui.orderUrgent;
+  var total = urgent? Math.round(subtotal*cfg().urgentMultiplier) : subtotal;
+  var days = calcDueDays(unitsTotal, urgent);
+  var due = addDays(todayIso(), days);
+
+  var linksHtml = state.ui.linkRows.map(function(lr, i){
+    return '<div class="link-row"><input type="text" placeholder="Например: верхняя дуга" data-act="linkLabel" data-i="'+i+'" value="'+esc(lr.label)+'"><input type="url" placeholder="Ссылка на файл (Google Drive, Яндекс.Диск и т.п.)" data-act="linkUrl" data-i="'+i+'" value="'+esc(lr.url)+'"></div>';
+  }).join('');
+
+  var f = state.ui.orderFields;
+  var doctorFieldsHtml = '';
+  if(mode==='doctor'){
+    var doc = state.session.doctor;
+    doctorFieldsHtml = '<div class="kv" style="margin-bottom:6px;"><b>Врач</b><span>'+esc(doc.name)+'</span><b>Клиника</b><span>'+esc(doc.clinic)+'</span></div>';
+  } else {
+    var doctors = state.data.doctors;
+    doctorFieldsHtml = '<div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">'+
+      '<label class="field">Врач<select name="doctorId" data-act="fld" data-f="doctorId"><option value="">— новый врач —</option>'+doctors.map(function(d){return '<option value="'+d.id+'"'+(f.doctorId===d.id?' selected':'')+'>'+esc(d.name)+' ('+esc(d.clinic)+')</option>';}).join('')+'</select></label>'+
+      '<label class="field">Или новый врач: имя<input type="text" name="newDoctorName" data-act="fld" data-f="newDoctorName" placeholder="Имя врача" value="'+esc(f.newDoctorName)+'"></label>'+
+      '<label class="field">Клиника<input type="text" name="newDoctorClinic" data-act="fld" data-f="newDoctorClinic" placeholder="Название клиники" value="'+esc(f.newDoctorClinic)+'"></label>'+
+      '<label class="field">Телефон врача<input type="tel" name="newDoctorPhone" data-act="fld" data-f="newDoctorPhone" placeholder="0700 123 456" value="'+esc(f.newDoctorPhone)+'"></label>'+
+    '</div>';
+  }
+
+  return '<form data-act="submitOrder" data-mode="'+mode+'" class="grid" style="gap:16px; max-width:640px;">'+
+    '<div class="card-panel">'+doctorFieldsHtml+'</div>'+
+    '<div class="card-panel"><label class="field">Имя пациента<input type="text" name="patientName" data-act="fld" data-f="patientName" value="'+esc(f.patientName)+'" required></label></div>'+
+    '<div class="card-panel">'+
+      '<div class="hint" style="margin-bottom:8px;">Добавить позицию</div>'+
+      '<div style="display:flex; gap:8px;"><select id="pickerSelect" style="flex:1;">'+pickerOptions+'</select><button type="button" class="btn" data-act="addDraftLine">Добавить</button></div>'+
+      '<div style="margin-top:14px;">'+draftHtml+'</div>'+
+    '</div>'+
+    '<div class="card-panel">'+
+      '<label class="check"><input type="checkbox" data-act="toggleUrgent" '+(urgent?'checked':'')+'> Срочное выполнение (срок '+cfg().urgentDays+' дня, +'+Math.round((cfg().urgentMultiplier-1)*100)+'%)</label>'+
+    '</div>'+
+    '<div class="card-panel">'+
+      '<div class="hint" style="margin-bottom:8px;">Файлы сканов</div>'+
+      '<div class="dropzone" data-act="pickFiles" data-drop="1"><div class="dz-ic">⭱</div><div><b>Перетащите файлы сюда</b> или нажмите, чтобы выбрать<div class="faint">До 150 МБ на файл — сканы, STL, фото прикуса</div></div></div>'+
+      '<input type="file" id="scanFileInput" data-act="filesSelected" multiple style="display:none;">'+
+      '<div class="upload-list">'+renderUploadList()+'</div>'+
+      '<div class="hint" style="margin:12px 0 8px;">Или ссылка (Google Drive, Яндекс.Диск и т.п.)</div>'+linksHtml+
+      '<button type="button" class="btn sm ghost" data-act="addLinkRow">+ Ещё ссылка</button></div>'+
+    '<div class="card-panel"><label class="field">Примечание<textarea name="notes" data-act="fld" data-f="notes">'+esc(f.notes)+'</textarea></label></div>'+
+    '<div class="order-total-bar">'+
+      '<div><div class="sum">'+fmtMoney(total)+'</div><div class="due">Ориентировочный срок: '+fmtDate(due)+' ('+days+' дн.)</div></div>'+
+      '<button class="btn primary" type="submit">Оформить заказ</button>'+
+    '</div>'+
+  '</form>';
+}
+function renderMiniToothChart(selected, idx){
+  function row(qkey, rev){
+    return '<div class="tq'+(rev?' rev':'')+'">'+TEETH_Q[qkey].map(function(t){
+      return '<button type="button" class="tooth-btn'+(selected.indexOf(t)>-1?' on':'')+'" data-act="toggleTooth" data-idx="'+idx+'" data-t="'+t+'">'+t+'</button>';
+    }).join('')+'</div>';
+  }
+  return '<div class="tooth-chart">'+row('q1',true)+row('q2',false)+row('q4',true)+row('q3',false)+'</div>';
+}
+
+/* ---------- DOCTOR SHELL ---------- */
+function renderDoctorShell(){
+  var v = state.view==='myorders' ? 'myorders' : 'neworder';
+  var content = v==='neworder' ? renderOrderForm('doctor') : renderDoctorOrders();
+  return '<div class="doc-shell">'+
+    '<div class="doc-top"><div class="word">IDEAL<em>.</em></div><button class="logout-btn" style="color:#fff;" data-act="logout">Выйти</button></div>'+
+    '<div class="doc-tabs"><div class="doc-tab'+(v==='neworder'?' active':'')+'" data-act="navdoc" data-v="neworder">Новый заказ</div><div class="doc-tab'+(v==='myorders'?' active':'')+'" data-act="navdoc" data-v="myorders">Мои заказы</div></div>'+
+    '<div class="doc-content">'+content+'</div>'+
+  '</div>';
+}
+function renderDoctorOrders(){
+  var mine = state.data.orders.filter(function(o){return o.doctorPhone===state.session.doctor.id;})
+    .sort(function(a,b){return (b.createdAt||'').localeCompare(a.createdAt||'');});
+  if(!mine.length) return '<div class="empty-state">У вас пока нет заказов.<br>Нажмите «Новый заказ», чтобы оформить первый.</div>';
+  return mine.map(function(o){
+    var paid = orderPaid(o.id);
+    var dc = dueClass(o.dueDate,o.stage);
+    return '<div class="card-panel" style="margin-bottom:12px;">'+
+      '<div style="display:flex; justify-content:space-between; align-items:baseline;"><b class="mono">'+esc(o.code)+'</b><span class="badge neutral">'+esc(o.stage)+'</span></div>'+
+      '<div style="margin-top:6px; font-weight:700;">'+esc(o.patientName)+'</div>'+
+      '<div class="faint" style="margin-top:2px;">'+(o.items||[]).map(function(li){return esc(li.name)+(li.unit==='tooth'?' ('+li.teeth.join(',')+')':'');}).join('; ')+'</div>'+
+      '<div style="margin-top:8px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">'+
+        '<span class="'+dc+'" style="font-weight:700; font-size:12.5px;">'+dueLabel(o.dueDate,o.stage)+'</span>'+
+        '<span class="mono">'+fmtMoney(o.total)+' · оплачено '+fmtMoney(paid)+'</span>'+
+      '</div></div>';
+  }).join('');
+}
+
+/* ============================= ACTIONS ============================= */
+function resetOrderDraft(){
+  state.ui.draftItems=[]; state.ui.orderUrgent=false; state.ui.linkRows=[{label:'',url:''}]; state.ui.uploadFiles=[];
+  state.ui.orderFields = {patientName:'', doctorId:'', newDoctorName:'', newDoctorClinic:'', newDoctorPhone:'', notes:''};
+}
+function renderUploadList(){
+  var files = state.ui.uploadFiles||[];
+  if(!files.length) return '';
+  return files.map(function(f, i){
+    var sizeStr = f.size ? (f.size>1048576 ? (f.size/1048576).toFixed(1)+' МБ' : Math.round(f.size/1024)+' КБ') : '';
+    var status = f.status==='uploading' ? '<div class="uprog"><div class="uprog-bar" style="width:'+(f.progress||0)+'%"></div></div>'
+      : f.status==='error' ? '<span class="badge crit">Ошибка</span>'
+      : '<span class="badge good">Загружено · '+sizeStr+'</span>';
+    return '<div class="upload-row"><span class="uname">'+esc(f.name)+'</span>'+status+'<button type="button" class="rm" data-act="rmUpload" data-idx="'+i+'">×</button></div>';
+  }).join('');
+}
+function startUpload(file){
+  var entry = {name:file.name, size:file.size, status:'uploading', progress:0, url:''};
+  state.ui.uploadFiles.push(entry);
+  var idx = state.ui.uploadFiles.length-1;
+  render();
+  var fd = new FormData(); fd.append('file', file);
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/upload');
+  xhr.upload.onprogress = function(e){
+    if(e.lengthComputable && state.ui.uploadFiles[idx]){
+      state.ui.uploadFiles[idx].progress = Math.round(e.loaded/e.total*100);
+      render();
+    }
+  };
+  xhr.onload = function(){
+    if(!state.ui.uploadFiles[idx]) return;
+    if(xhr.status>=200 && xhr.status<300){
+      try{
+        var r = JSON.parse(xhr.responseText);
+        state.ui.uploadFiles[idx].status='done'; state.ui.uploadFiles[idx].url=r.url; state.ui.uploadFiles[idx].size=r.size;
+      }catch(e){ state.ui.uploadFiles[idx].status='error'; }
+    } else { state.ui.uploadFiles[idx].status='error'; }
+    render();
+  };
+  xhr.onerror = function(){ if(state.ui.uploadFiles[idx]){ state.ui.uploadFiles[idx].status='error'; render(); } };
+  xhr.send(fd);
+}
+
+function openOrderForm(mode){
+  resetOrderDraft();
+  if(mode==='staff') state.view='neworder'; else state.view='neworder';
+  render();
+}
+
+document.addEventListener('dragover', function(e){
+  if(e.target.closest && e.target.closest('[data-drop]')){ e.preventDefault(); e.target.closest('[data-drop]').classList.add('drag'); }
+});
+document.addEventListener('dragleave', function(e){
+  var z = e.target.closest && e.target.closest('[data-drop]');
+  if(z) z.classList.remove('drag');
+});
+document.addEventListener('drop', function(e){
+  var z = e.target.closest && e.target.closest('[data-drop]');
+  if(!z) return;
+  e.preventDefault(); z.classList.remove('drag');
+  var files = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []);
+  files.forEach(function(f){ startUpload(f); });
+});
+document.addEventListener('click', async function(e){
+  var el = e.target.closest('[data-act]');
+  if(!el) return;
+  var act = el.getAttribute('data-act');
+  try{
+
+  if(act==='chooseRole'){
+    var r = el.getAttribute('data-r');
+    state.ui.loginStep = r==='staff' ? 'staffPick' : 'docPhone';
+    render(); return;
+  }
+  if(act==='loginBack'){ state.ui.loginStep='choice'; state.ui.pinBuf=''; render(); return; }
+  if(act==='pickStaff'){ state.ui.loginStaffId = el.getAttribute('data-id'); state.ui.loginStep='pin'; state.ui.pinBuf=''; render(); return; }
+  if(act==='pinDigit'){
+    state.ui.pinBuf += el.getAttribute('data-d');
+    if(state.ui.pinBuf.length>=4){
+      var st = state.data.staff.filter(function(s){return s.id===state.ui.loginStaffId;})[0];
+      if(st && st.pin===state.ui.pinBuf){
+        state.session = {type:'staff', staff:st}; saveSession(); state.view='board'; state.ui.pinBuf='';
+      } else {
+        toast('Неверный PIN'); state.ui.pinBuf='';
+      }
+    }
+    render(); return;
+  }
+  if(act==='pinClear'){ state.ui.pinBuf=''; render(); return; }
+  if(act==='logout'){ logout(); return; }
+
+  if(act==='nav'){ state.view = el.getAttribute('data-v'); render(); return; }
+  if(act==='navdoc'){ state.view = el.getAttribute('data-v'); render(); return; }
+  if(act==='openNewOrder'){ openOrderForm('staff'); return; }
+
+  if(act==='openOrder'){ state.ui.openOrderId = el.getAttribute('data-id'); render(); return; }
+  if(act==='closeModal'){ state.ui.openOrderId=null; render(); return; }
+  if(act==='noop'){ return; }
+
+  if(act==='toggleMine'){ state.ui.boardOnlyMine = el.checked; render(); return; }
+
+  if(act==='setStage'){
+    if(!state.db) return;
+    var id = el.getAttribute('data-id'), s = el.getAttribute('data-s');
+    await state.db.collection('orders').doc(id).update({stage:s, statusHistory: (state.data.orders.filter(function(o){return o.id===id;})[0].statusHistory||[]).concat([{stage:s, at:new Date().toISOString()}])});
+    return;
+  }
+  if(act==='addDraftLine'){
+    var sel = document.getElementById('pickerSelect');
+    var id = sel.value; var it = state.data.priceList.filter(function(p){return p.id===id;})[0];
+    if(!it) return;
+    state.ui.draftItems.push({lineId:uid(), itemId:it.id, name:it.name, unit:it.unit, unitPrice:it.price, addon:false, addonPrice:it.addon||0, teeth:[], qty:1});
+    render(); return;
+  }
+  if(act==='rmDraft'){ state.ui.draftItems.splice(+el.getAttribute('data-idx'),1); render(); return; }
+  if(act==='toggleTooth'){
+    var idx = +el.getAttribute('data-idx'), t = +el.getAttribute('data-t');
+    var li = state.ui.draftItems[idx]; var pos = li.teeth.indexOf(t);
+    if(pos>-1) li.teeth.splice(pos,1); else li.teeth.push(t);
+    render(); return;
+  }
+  if(act==='toggleAddon'){ state.ui.draftItems[+el.getAttribute('data-idx')].addon = el.checked; render(); return; }
+  if(act==='toggleUrgent'){ state.ui.orderUrgent = el.checked; render(); return; }
+  if(act==='addLinkRow'){ state.ui.linkRows.push({label:'',url:''}); render(); return; }
+  if(act==='pickFiles'){ var fi=document.getElementById('scanFileInput'); if(fi) fi.click(); return; }
+  if(act==='rmUpload'){ state.ui.uploadFiles.splice(+el.getAttribute('data-idx'),1); render(); return; }
+
+  if(act==='toggleStaffActive'){
+    if(!state.db) return;
+    var s = state.data.staff.filter(function(x){return x.id===el.getAttribute('data-id');})[0];
+    await state.db.collection('staff').doc(s.id).update({active: s.active===false});
+    return;
+  }
+  if(act==='removePriceItem'){
+    if(!state.db) return;
+    var items = state.data.priceList.filter(function(p){return p.id!==el.getAttribute('data-id');});
+    await state.db.doc('settings/priceList').set({items:items});
+    return;
+  }
+  if(act==='addStageField'){ cfg().stages.push('Новый этап'); state.data.config = Object.assign({}, cfg()); render(); return; }
+  if(act==='removeStage'){ var i=+el.getAttribute('data-i'); cfg().stages.splice(i,1); state.data.config = Object.assign({}, cfg()); render(); return; }
+  if(act==='addTierField'){ cfg().deadlineTiers.push({maxUnits:20, days:7}); state.data.config = Object.assign({}, cfg()); render(); return; }
+  if(act==='removeTier'){ var ti=+el.getAttribute('data-i'); cfg().deadlineTiers.splice(ti,1); state.data.config = Object.assign({}, cfg()); render(); return; }
+
+  if(act==='clearDemo'){
+    if(!state.db) return;
+    if(!confirm('Удалить все демо-записи (сотрудники, врачи, заказы, оплаты, расходы)?')) return;
+    var db = state.db;
+    var cols = ['staff','doctors','orders','payments','expenses'];
+    for(var ci=0; ci<cols.length; ci++){
+      var arr = state.data[cols[ci]].filter(function(x){return x.demo;});
+      for(var ai=0; ai<arr.length; ai++){ await db.collection(cols[ci]).doc(arr[ai].id).delete(); }
+    }
+    toast('Демо-данные удалены');
+    return;
+  }
+  if(act==='delTimeoff'){ if(!state.db) return; await state.db.collection('timeoff').doc(el.getAttribute('data-id')).delete(); return; }
+
+  }catch(err){ console.error(err); toast('Ошибка: '+(err&&err.message?err.message:'попробуйте ещё раз')); }
+});
+
+document.addEventListener('input', function(e){
+  var el = e.target;
+  var act = el.getAttribute && el.getAttribute('data-act');
+  if(act==='filterOrders'){ state.ui.orderFilter = el.value; render(); var ne=document.querySelector('[data-act=filterOrders]'); if(ne){ne.focus(); ne.setSelectionRange(ne.value.length,ne.value.length);} return; }
+  if(act==='setQty'){
+    var qidx = el.getAttribute('data-idx');
+    state.ui.draftItems[+qidx].qty = Math.max(1, +el.value||1);
+    render();
+    var nq = document.querySelector('[data-act=setQty][data-idx="'+qidx+'"]');
+    if(nq){ nq.focus(); }
+    return;
+  }
+  if(act==='linkLabel'){ state.ui.linkRows[+el.getAttribute('data-i')].label = el.value; return; }
+  if(act==='linkUrl'){ state.ui.linkRows[+el.getAttribute('data-i')].url = el.value; return; }
+  if(act==='fld'){ state.ui.orderFields[el.getAttribute('data-f')] = el.value; return; }
+  if(el.hasAttribute && el.hasAttribute('data-stage-i')){ cfg().stages[+el.getAttribute('data-stage-i')] = el.value; return; }
+  if(el.hasAttribute && el.hasAttribute('data-tier')){
+    var i = +el.getAttribute('data-i'); var kind = el.getAttribute('data-tier');
+    if(kind==='max') cfg().deadlineTiers[i].maxUnits = +el.value||0; else cfg().deadlineTiers[i].days = +el.value||0;
+    return;
+  }
+});
+
+document.addEventListener('submit', async function(e){
+  var form = e.target.closest('[data-act]');
+  if(!form) return;
+  e.preventDefault();
+  var act = form.getAttribute('data-act');
+  var fd = new FormData(form);
+  try{
+
+  if(act==='submitDocPhone'){
+    var phone = (fd.get('phone')||'').toString().replace(/[^\d+]/g,'');
+    if(!phone){ toast('Введите номер'); return; }
+    state.ui.docPhone = phone;
+    var existing = state.data.doctors.filter(function(d){return d.id===phone;})[0];
+    if(existing){ state.session={type:'doctor', doctor:existing}; saveSession(); state.view='neworder'; render(); }
+    else { state.ui.loginStep='docRegister'; render(); }
+    return;
+  }
+  if(act==='submitDocRegister'){
+    if(!state.db){ toast('Хранилище недоступно'); return; }
+    var name = fd.get('name'), clinic = fd.get('clinic');
+    var docObj = {name:name, clinic:clinic, phone:state.ui.docPhone, demo:false, createdAt:new Date().toISOString()};
+    await state.db.collection('doctors').doc(state.ui.docPhone).set(docObj);
+    state.session = {type:'doctor', doctor:Object.assign({id:state.ui.docPhone}, docObj)};
+    saveSession(); state.view='neworder'; render();
+    return;
+  }
+
+  if(act==='submitOrder'){
+    if(!state.db){ toast('Нет соединения с сервером'); return; }
+    var mode = form.getAttribute('data-mode');
+    if(!state.ui.draftItems.length){ toast('Добавьте хотя бы одну позицию'); return; }
+    var patientName = fd.get('patientName');
+    var items = state.ui.draftItems.map(function(li){
+      var u = li.unit==='tooth'? li.teeth.length : li.qty;
+      if(u<=0) return null;
+      return {lineId:li.lineId, itemId:li.itemId, name:li.name, unit:li.unit, teeth:li.teeth.slice(), qty:li.qty, addon:li.addon, unitPrice:li.unitPrice, addonPrice:li.addonPrice, lineTotal: u*(li.unitPrice+(li.addon?li.addonPrice:0))};
+    }).filter(Boolean);
+    if(!items.length){ toast('Укажите зубы или количество для позиций'); return; }
+    var subtotal = items.reduce(function(a,i){return a+i.lineTotal;},0);
+    var unitsTotal = items.reduce(function(a,i){return a+(i.unit==='tooth'?i.teeth.length:i.qty);},0);
+    var urgent = !!state.ui.orderUrgent;
+    var total = urgent? Math.round(subtotal*cfg().urgentMultiplier) : subtotal;
+    var days = calcDueDays(unitsTotal, urgent);
+    var due = addDays(todayIso(), days);
+    var links = state.ui.linkRows.filter(function(l){return l.url;})
+      .concat((state.ui.uploadFiles||[]).filter(function(f){return f.status==='done';}).map(function(f){return {label:f.name, url:f.url};}));
+
+    var doctorName, clinicName, doctorPhone, createdBy;
+    if(mode==='doctor'){
+      doctorName = state.session.doctor.name; clinicName = state.session.doctor.clinic; doctorPhone = state.session.doctor.id;
+      createdBy = {type:'doctor', name:doctorName};
+    } else {
+      var did = fd.get('doctorId');
+      if(did){
+        var d = state.data.doctors.filter(function(x){return x.id===did;})[0];
+        doctorName=d.name; clinicName=d.clinic; doctorPhone=d.id;
+      } else {
+        var nn = fd.get('newDoctorName'), nc = fd.get('newDoctorClinic'), np = (fd.get('newDoctorPhone')||'').toString().replace(/[^\d+]/g,'');
+        if(!nn || !np){ toast('Укажите врача (выберите из списка или заполните данные нового)'); return; }
+        doctorPhone = np;
+        await state.db.collection('doctors').doc(np).set({name:nn, clinic:nc||'', phone:np, demo:false, createdAt:new Date().toISOString()});
+        doctorName = nn; clinicName = nc||'';
+      }
+      createdBy = {type:'staff', name: state.session.staff.name};
+    }
+
+    var code = genOrderCode();
+    var orderDoc = {
+      code:code, createdAt:new Date().toISOString(), createdBy:createdBy,
+      doctorPhone:doctorPhone, doctorName:doctorName, clinicName:clinicName, patientName:patientName,
+      items:items, urgent:urgent, subtotal:subtotal, total:total, unitsTotal:unitsTotal,
+      dueDate:due, stage:cfg().stages[0], assignedStaffId:null, assignedMillerId:null,
+      techPayout:null, links:links, notes: fd.get('notes')||'', statusHistory:[{stage:cfg().stages[0], at:new Date().toISOString()}], demo:false
+    };
+    await state.db.collection('orders').add(orderDoc);
+    resetOrderDraft();
+    toast('Заказ '+code+' создан');
+    state.view = mode==='doctor' ? 'myorders' : 'board';
+    render();
+    return;
+  }
+
+  if(act==='addPayment'){
+    if(!state.db) return;
+    var id = form.getAttribute('data-id'); var amount = +fd.get('amount');
+    if(!amount||amount<=0) return;
+    await state.db.collection('payments').add({orderId:id, amount:amount, method:'Перевод', date:todayIso(), note:'', demo:false, createdAt:new Date().toISOString()});
+    form.reset(); toast('Оплата добавлена');
+    return;
+  }
+  if(act==='setPayout'){
+    if(!state.db) return;
+    var oid = form.getAttribute('data-id'); var val = fd.get('payout');
+    await state.db.collection('orders').doc(oid).update({techPayout: val===''? null : +val});
+    toast('Сохранено'); return;
+  }
+  if(act==='payTech'){
+    if(!state.db) return;
+    var tid = form.getAttribute('data-id'); var amt = +fd.get('amount');
+    if(!amt||amt<=0) return;
+    await state.db.collection('expenses').add({date:todayIso(), category:'Выплата технику', amount:amt, staffId:tid, orderId:null, note:'', demo:false, createdAt:new Date().toISOString()});
+    form.reset(); toast('Выплата зафиксирована');
+    return;
+  }
+  if(act==='addExpense'){
+    if(!state.db) return;
+    await state.db.collection('expenses').add({date:todayIso(), category:fd.get('category'), amount:+fd.get('amount'), staffId:null, orderId:null, note:fd.get('note')||'', demo:false, createdAt:new Date().toISOString()});
+    form.reset(); toast('Расход добавлен'); return;
+  }
+  if(act==='addTimeoff'){
+    if(!state.db) return;
+    await state.db.collection('timeoff').add({staffId:fd.get('staffId'), type:fd.get('type'), from:fd.get('from'), to:fd.get('to'), note:fd.get('note')||'', createdAt:new Date().toISOString()});
+    form.reset(); toast('Добавлено'); return;
+  }
+  if(act==='addStaff'){
+    if(!state.db) return;
+    await state.db.collection('staff').add({name:fd.get('name'), role:fd.get('role'), phone:fd.get('phone')||'', pin:fd.get('pin'), active:true, demo:false, createdAt:new Date().toISOString()});
+    form.reset(); toast('Сотрудник добавлен'); return;
+  }
+  if(act==='addDoctor'){
+    if(!state.db) return;
+    var ph = (fd.get('phone')||'').toString().replace(/[^\d+]/g,'');
+    await state.db.collection('doctors').doc(ph).set({name:fd.get('name'), clinic:fd.get('clinic'), phone:ph, demo:false, createdAt:new Date().toISOString()});
+    form.reset(); toast('Врач добавлен'); return;
+  }
+  if(act==='addPriceItem'){
+    if(!state.db) return;
+    var items2 = state.data.priceList.slice();
+    items2.push({id:'x-'+uid(), category:fd.get('category'), name:fd.get('name'), price:+fd.get('price'), unit:fd.get('unit')});
+    await state.db.doc('settings/priceList').set({items:items2});
+    form.reset(); toast('Позиция добавлена'); return;
+  }
+  if(act==='updatePrice'){
+    if(!state.db) return;
+    var pid = form.getAttribute('data-id'); var np2 = +fd.get('price');
+    var items3 = state.data.priceList.map(function(it){ return it.id===pid? Object.assign({}, it, {price:np2}) : it; });
+    await state.db.doc('settings/priceList').set({items:items3});
+    toast('Цена обновлена'); return;
+  }
+  if(act==='saveSettings'){
+    if(!state.db) return;
+    var newCfg = Object.assign({}, cfg(), {
+      labName: fd.get('labName'), urgentDays:+fd.get('urgentDays'), urgentMultiplier:+fd.get('urgentMultiplier'), techSharePercent:+fd.get('techSharePercent'),
+      stages: cfg().stages.slice(), deadlineTiers: cfg().deadlineTiers.slice()
+    });
+    await state.db.doc('settings/config').set(newCfg);
+    toast('Настройки сохранены'); return;
+  }
+
+  }catch(err){ console.error(err); toast('Ошибка: '+(err&&err.message?err.message:'попробуйте ещё раз')); }
+});
+
+document.addEventListener('change', async function(e){
+  var el = e.target;
+  var act = el.getAttribute && el.getAttribute('data-act');
+  if(!act) return;
+  try{
+    if(act==='assignStaff'){ if(!state.db) return; await state.db.collection('orders').doc(el.getAttribute('data-id')).update({assignedStaffId: el.value||null}); toast('Назначено'); }
+    else if(act==='assignMiller'){ if(!state.db) return; await state.db.collection('orders').doc(el.getAttribute('data-id')).update({assignedMillerId: el.value||null}); toast('Назначено'); }
+    else if(act==='fld'){ state.ui.orderFields[el.getAttribute('data-f')] = el.value; }
+    else if(act==='filesSelected'){
+      var files = Array.prototype.slice.call(el.files||[]);
+      files.forEach(function(f){ startUpload(f); });
+      el.value = '';
+    }
+  }catch(err){ console.error(err); toast('Ошибка: '+(err&&err.message?err.message:'')); }
+});
+
+init();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
+}
+</script>
+</body>
+</html>

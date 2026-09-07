@@ -1,0 +1,37 @@
+{
+  "name": "ideal-lab-desktop",
+  "version": "1.0.0",
+  "description": "IDEAL Lab — настольное приложение (обёртка над веб-версией)",
+  "main": "main.js",
+  "author": "IDEAL",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.ideal.lab.desktop",
+    "productName": "IDEAL Lab",
+    "directories": { "output": "dist" },
+    "publish": null,
+    "files": ["main.js", "preload.js", "config.html", "icon.png", "icon.ico"],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "IDEAL Lab"
+    }
+  }
+}
