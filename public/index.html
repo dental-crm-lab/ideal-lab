@@ -863,7 +863,7 @@ function renderCalendar(){
     var dayOrders = ordersByDay[iso] || [];
     var chips = dayOrders.map(function(o){
       var dc = dueClass(o.dueDate, o.stage);
-      var label = patientSurname(o.patientName) + materialSuffix(o.material);
+      var label = (o.patientName||'') + materialSuffix(o.material);
       return '<div class="cal-chip '+dc+'" data-act="openOrder" data-id="'+o.id+'" title="'+esc(o.patientName)+' — '+esc(o.stage)+'">'+esc(label)+'</div>';
     }).join('');
     cells += '<div class="cal-cell'+(iso===todayStr?' cal-today':'')+'"><div class="cal-daynum">'+d+'</div><div class="cal-chips">'+chips+'</div></div>';
