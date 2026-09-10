@@ -16,6 +16,32 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+self.addEventListener('push', (event) => {
+  let payload = { title: 'IDEAL Lab', body: '' };
+  try { if (event.data) payload = Object.assign(payload, event.data.json()); } catch (e) {}
+  const options = {
+    body: payload.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: payload.tag || 'ideal-lab',
+    data: { url: payload.url || '/' }
+  };
+  event.waitUntil(self.registration.showNotification(payload.title || 'IDEAL Lab', options).catch(() => {}));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) { client.navigate ? client.navigate(url).catch(() => {}) : null; return client.focus(); }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);

@@ -11,6 +11,7 @@ const { randomUUID } = require('crypto');
 const store = require('./store');
 const { seedIfNeeded } = require('./seed');
 const superadmin = require('./superadmin');
+const push = require('./push');
 
 seedIfNeeded();
 
@@ -72,6 +73,9 @@ res.json({ exists: true, data });
 app.post('/api/doc/:coll', (req, res) => {
 const id = store.addDoc(req.params.coll, req.body || {});
 res.json({ id });
+if (req.params.coll === 'orders') {
+push.notifyNewOrder(Object.assign({}, req.body, { id }));
+}
 });
 
 app.put('/api/doc/:coll/:id', (req, res) => {
@@ -90,6 +94,14 @@ res.json({ ok: true });
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+
+// ---- web push (new order / due soon / overdue notifications) ----
+app.get('/api/push/public-key', (req, res) => {
+res.json({ publicKey: push.getPublicKey() });
+});
+push.ensureVapid();
+push.checkDeadlines();
+setInterval(() => push.checkDeadlines(), 30 * 60 * 1000);
 
 // ---- static frontend ----
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');

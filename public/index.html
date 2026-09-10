@@ -360,7 +360,12 @@ var DEFAULT_CONFIG = {
     miller: { mode:'percent', percent:0, fixedZr:0, fixedPmma:0 }
   },
   nonWorkingWeekdays: [0],
-  holidays: []
+  holidays: [],
+  notifyRoles: {
+    newOrder: ['owner','admin'],
+    dueSoon: ['owner'],
+    overdue: ['owner']
+  }
 };
 
 var DEFAULT_PRICE_LIST = [
@@ -413,7 +418,7 @@ var state = {
   session: null,
   view: 'board',
   data:{staff:[], doctors:[], orders:[], payments:[], expenses:[], timeoff:[], priceList:[], config:null, activity:[]},
-  ui:{ openOrderId:null, draftItems:[], loginStep:'choice', loginStaffId:null, pinBuf:'', docPhone:'', staffForm:null, doctorForm:null, staffEditId:null, plEdit:false, toast:null, orderFilter:'', boardOnlyMine:true, newOrderDoctorMode:'existing', linkRows:[{label:'',url:''}], uploadFiles:[], settingsDraft:null, calMonth:null, orderSort:null,
+  ui:{ openOrderId:null, draftItems:[], loginStep:'choice', loginStaffId:null, pinBuf:'', docPhone:'', staffForm:null, doctorForm:null, staffEditId:null, plEdit:false, toast:null, orderFilter:'', boardOnlyMine:true, newOrderDoctorMode:'existing', linkRows:[{label:'',url:''}], uploadFiles:[], settingsDraft:null, calMonth:null, orderSort:null, pushChecked:false, pushSubscribed:false,
        orderFields:{patientName:'', doctorId:'', newDoctorName:'', newDoctorClinic:'', newDoctorPhone:'', notes:'', material:''} }
 };
 
@@ -776,6 +781,10 @@ function navDefsStaff(){
   return items;
 }
 function renderStaffShell(){
+  if(!state.ui.pushChecked && typeof navigator!=='undefined' && 'serviceWorker' in navigator && 'PushManager' in window){
+    state.ui.pushChecked = true;
+    navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){ state.ui.pushSubscribed = !!sub; render(); }).catch(function(){});
+  }
   var items = navDefsStaff();
   var nav = items.map(function(it){
     return '<div class="navitem'+(state.view===it.id?' active':'')+'" data-act="nav" data-v="'+it.id+'"><span class="ic">'+it.ic+'</span>'+it.label+'</div>';
@@ -803,6 +812,7 @@ function renderStaffShell(){
       '<div class="navgroup-label">Разделы</div>'+nav+
       '<div class="sidebar-foot">'+
         '<div class="who"><b>'+esc(state.session.staff.name)+'</b>'+(STAFF_ROLES[state.session.staff.role]?STAFF_ROLES[state.session.staff.role].label:'')+'</div>'+
+        (('serviceWorker' in navigator && 'PushManager' in window) ? '<button class="logout-btn" data-act="togglePush">'+(state.ui.pushSubscribed?'🔔 Уведомления включены':'🔕 Включить уведомления')+'</button>' : '')+
         '<button class="logout-btn" data-act="logout">Выйти</button>'+
       '</div>'+
     '</div>'+
@@ -1227,6 +1237,24 @@ function renderSettingsAdmin(){
     '<div style="display:flex; gap:8px; margin-top:6px;"><input type="date" id="newHolidayDate" style="max-width:170px;"><button class="btn sm ghost" type="button" data-act="addHoliday">+ Добавить дату</button></div>'+
     '<p class="hint" style="margin-top:10px;">Срок сдачи заказа автоматически переносится на ближайший рабочий день, если расчётная дата попадает на нерабочий день.</p>'+
   '</div>';
+  var NOTIFY_KINDS = [['newOrder','Новый заказ поступил'],['dueSoon','Срок сдачи сегодня/завтра'],['overdue','Заказ просрочен']];
+  var notifyRoles = c.notifyRoles || DEFAULT_CONFIG.notifyRoles;
+  var roleKeys = Object.keys(STAFF_ROLES);
+  var notifyRolesHtml = '<div class="card-panel"><h3 style="margin-bottom:10px;">Push-уведомления</h3>'+
+    '<p class="hint" style="margin-bottom:10px;">Кто получает уведомления на телефон/в приложении по каждому событию. Каждому сотруднику ещё нужно включить уведомления в своём аккаунте (кнопка в боковом меню).</p>'+
+    '<div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; min-width:480px;">'+
+    '<thead><tr><th style="text-align:left; padding:4px 8px;"></th>'+roleKeys.map(function(r){return '<th style="padding:4px 6px; font-weight:600; font-size:12px; text-align:center;">'+STAFF_ROLES[r].label+'</th>';}).join('')+'</tr></thead>'+
+    '<tbody>'+NOTIFY_KINDS.map(function(nk){
+      var kind = nk[0], label = nk[1];
+      var arr = notifyRoles[kind] || [];
+      return '<tr><td style="padding:6px 8px; font-size:13px;">'+label+'</td>'+
+        roleKeys.map(function(r){
+          var checked = arr.indexOf(r) > -1;
+          return '<td style="text-align:center; padding:6px 6px;"><input type="checkbox" data-act="toggleNotifyRole" data-kind="'+kind+'" data-role="'+r+'" '+(checked?'checked':'')+'></td>';
+        }).join('')+
+      '</tr>';
+    }).join('')+
+    '</tbody></table></div></div>';
   return appearanceHtml +
     '<form data-act="saveSettings" class="grid" style="gap:22px; max-width:560px;">'+
     '<div class="card-panel"><h3 style="margin-bottom:10px;">Название лаборатории</h3><input type="text" name="labName" value="'+esc(c.labName)+'"></div>'+
@@ -1240,6 +1268,7 @@ function renderSettingsAdmin(){
       '<label class="field" style="margin-top:10px;">Наценка за срочность, %<input type="number" name="urgentPercent" value="'+c.urgentPercent+'" style="max-width:120px;"></label></div>'+
     payoutSectionHtml('technician','Оплата технику')+
     payoutSectionHtml('miller','Оплата фрезеровщику')+
+    notifyRolesHtml+
     '<div class="btn-row"><button class="btn primary" type="submit">Сохранить настройки</button>'+
       '<button class="btn danger" type="button" data-act="clearDemo">Очистить демо-данные</button></div>'+
   '</form>';
@@ -1592,6 +1621,16 @@ document.addEventListener('click', async function(e){
     if(cfg().holidays){ var hpos = cfg().holidays.indexOf(hd); if(hpos>-1) cfg().holidays.splice(hpos,1); }
     render(); return;
   }
+  if(act==='toggleNotifyRole'){
+    var nkKind = el.getAttribute('data-kind'), nkRole = el.getAttribute('data-role');
+    if(!cfg().notifyRoles) cfg().notifyRoles = JSON.parse(JSON.stringify(DEFAULT_CONFIG.notifyRoles));
+    if(!cfg().notifyRoles[nkKind]) cfg().notifyRoles[nkKind] = [];
+    var nkArr = cfg().notifyRoles[nkKind];
+    var nkPos = nkArr.indexOf(nkRole);
+    if(nkPos>-1) nkArr.splice(nkPos,1); else nkArr.push(nkRole);
+    return;
+  }
+  if(act==='togglePush'){ togglePush(); return; }
 
   if(act==='clearDemo'){
     if(!state.db) return;
@@ -1821,7 +1860,12 @@ document.addEventListener('submit', async function(e){
       labName: fd.get('labName'), urgentDays:+fd.get('urgentDays'), urgentPercent:+fd.get('urgentPercent'),
       stages: cfg().stages.slice(), deadlineTiers: cfg().deadlineTiers.slice(),
       payouts: { technician: Object.assign({}, cfg().payouts.technician), miller: Object.assign({}, cfg().payouts.miller) },
-      nonWorkingWeekdays: (cfg().nonWorkingWeekdays||[]).slice(), holidays: (cfg().holidays||[]).slice()
+      nonWorkingWeekdays: (cfg().nonWorkingWeekdays||[]).slice(), holidays: (cfg().holidays||[]).slice(),
+      notifyRoles: {
+        newOrder: ((cfg().notifyRoles||{}).newOrder||[]).slice(),
+        dueSoon: ((cfg().notifyRoles||{}).dueSoon||[]).slice(),
+        overdue: ((cfg().notifyRoles||{}).overdue||[]).slice()
+      }
     });
     delete newCfg.urgentMultiplier; delete newCfg.techSharePercent;
     await state.db.doc('settings/config').set(newCfg);
@@ -1847,6 +1891,42 @@ document.addEventListener('change', async function(e){
     }
   }catch(err){ console.error(err); toast('Ошибка: '+(err&&err.message?err.message:'')); }
 });
+
+/* ---------- WEB PUSH ---------- */
+function urlBase64ToUint8Array(base64String){
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+  var rawData = atob(base64);
+  var outputArray = new Uint8Array(rawData.length);
+  for(var i=0;i<rawData.length;i++){ outputArray[i] = rawData.charCodeAt(i); }
+  return outputArray;
+}
+async function togglePush(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)){ toast('Уведомления не поддерживаются в этом браузере'); return; }
+  try{
+    var reg = await navigator.serviceWorker.ready;
+    var existing = await reg.pushManager.getSubscription();
+    if(existing){
+      var subId = null;
+      try{ subId = localStorage.getItem('ideal_push_sub_id'); }catch(e){}
+      await existing.unsubscribe();
+      if(subId && state.db){ try{ await state.db.collection('pushSubscriptions').doc(subId).delete(); }catch(e){} }
+      try{ localStorage.removeItem('ideal_push_sub_id'); }catch(e){}
+      state.ui.pushSubscribed = false; render(); toast('Уведомления отключены');
+      return;
+    }
+    var perm = await Notification.requestPermission();
+    if(perm!=='granted'){ toast('Разрешение на уведомления не получено'); return; }
+    var pkRes = await fetch('/api/push/public-key');
+    var pk = await pkRes.json();
+    if(!pk || !pk.publicKey){ toast('Не удалось получить ключ уведомлений'); return; }
+    var sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(pk.publicKey) });
+    var staffId = state.session && state.session.staff && state.session.staff.id;
+    var r = await state.db.collection('pushSubscriptions').add({ staffId: staffId, subscription: sub.toJSON(), createdAt: new Date().toISOString() });
+    try{ localStorage.setItem('ideal_push_sub_id', r.id); }catch(e){}
+    state.ui.pushSubscribed = true; render(); toast('Уведомления включены');
+  }catch(err){ console.error(err); toast('Ошибка уведомлений: '+(err&&err.message?err.message:'')); }
+}
 
 init();
 })();
