@@ -358,7 +358,9 @@ var DEFAULT_CONFIG = {
   payouts: {
     technician: { mode:'percent', percent:30, fixedZr:0, fixedPmma:0 },
     miller: { mode:'percent', percent:0, fixedZr:0, fixedPmma:0 }
-  }
+  },
+  nonWorkingWeekdays: [0],
+  holidays: []
 };
 
 var DEFAULT_PRICE_LIST = [
@@ -631,6 +633,20 @@ function calcDueDays(units, urgent){
   var tiers = c.deadlineTiers || DEFAULT_CONFIG.deadlineTiers;
   for(var i=0;i<tiers.length;i++){ if(units <= tiers[i].maxUnits) return tiers[i].days; }
   return tiers[tiers.length-1].days;
+}
+function isNonWorkingDay(iso){
+  var c = cfg();
+  var d = new Date(iso+'T00:00:00');
+  var wd = d.getDay(); // 0=Вс,1=Пн,...6=Сб
+  if((c.nonWorkingWeekdays||[]).indexOf(wd) > -1) return true;
+  if((c.holidays||[]).indexOf(iso) > -1) return true;
+  return false;
+}
+function nextWorkingDay(iso){
+  var d = iso;
+  var guard = 0;
+  while(isNonWorkingDay(d) && guard < 60){ d = addDays(d, 1); guard++; }
+  return d;
 }
 function genOrderCode(){
   var d = new Date();
@@ -1193,6 +1209,24 @@ function renderSettingsAdmin(){
   var stagesHtml = c.stages.map(function(s,i){
     return '<div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;"><input type="text" data-stage-i="'+i+'" value="'+esc(s)+'"> <button class="btn sm ghost" type="button" data-act="removeStage" data-i="'+i+'">✕</button></div>';
   }).join('');
+  var WEEKDAY_DEFS = [[1,'Пн'],[2,'Вт'],[3,'Ср'],[4,'Чт'],[5,'Пт'],[6,'Сб'],[0,'Вс']];
+  var nonWorking = c.nonWorkingWeekdays || [];
+  var weekdayButtons = WEEKDAY_DEFS.map(function(w){
+    var active = nonWorking.indexOf(w[0]) > -1;
+    return '<button type="button" class="btn sm '+(active?'primary':'ghost')+'" data-act="toggleNonWorkingDay" data-wd="'+w[0]+'">'+w[1]+'</button>';
+  }).join('');
+  var holidaysSorted = (c.holidays||[]).slice().sort();
+  var holidaysHtml = holidaysSorted.map(function(h){
+    return '<div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;"><span class="mono">'+fmtDate(h)+'</span><button class="btn sm ghost" type="button" data-act="removeHoliday" data-d="'+h+'">✕</button></div>';
+  }).join('') || '<p class="hint">Праздничных дат не добавлено.</p>';
+  var nonWorkingHtml = '<div class="card-panel"><h3 style="margin-bottom:10px;">Нерабочие дни</h3>'+
+    '<div class="hint" style="margin-bottom:6px;">Дни недели, когда лаборатория не работает</div>'+
+    '<div class="seg-row">'+weekdayButtons+'</div>'+
+    '<div class="hint" style="margin:14px 0 6px;">Праздничные даты</div>'+
+    holidaysHtml+
+    '<div style="display:flex; gap:8px; margin-top:6px;"><input type="date" id="newHolidayDate" style="max-width:170px;"><button class="btn sm ghost" type="button" data-act="addHoliday">+ Добавить дату</button></div>'+
+    '<p class="hint" style="margin-top:10px;">Срок сдачи заказа автоматически переносится на ближайший рабочий день, если расчётная дата попадает на нерабочий день.</p>'+
+  '</div>';
   return appearanceHtml +
     '<form data-act="saveSettings" class="grid" style="gap:22px; max-width:560px;">'+
     '<div class="card-panel"><h3 style="margin-bottom:10px;">Название лаборатории</h3><input type="text" name="labName" value="'+esc(c.labName)+'"></div>'+
@@ -1200,6 +1234,7 @@ function renderSettingsAdmin(){
       '<div class="btn-row" style="margin-top:6px;"><button class="btn sm ghost" type="button" data-act="addStageField">+ Добавить этап</button></div></div>'+
     '<div class="card-panel"><h3 style="margin-bottom:10px;">Сроки выполнения (по количеству единиц)</h3>'+tiersHtml+
       '<div class="btn-row" style="margin-top:6px;"><button class="btn sm ghost" type="button" data-act="addTierField">+ Добавить порог</button></div></div>'+
+    nonWorkingHtml+
     '<div class="card-panel"><h3 style="margin-bottom:10px;">Срочные заказы</h3>'+
       '<label class="field">Срок для срочных, дней<input type="number" name="urgentDays" value="'+c.urgentDays+'" style="max-width:120px;"></label>'+
       '<label class="field" style="margin-top:10px;">Наценка за срочность, %<input type="number" name="urgentPercent" value="'+c.urgentPercent+'" style="max-width:120px;"></label></div>'+
@@ -1259,7 +1294,7 @@ function renderOrderForm(mode){
   var urgent = !!state.ui.orderUrgent;
   var total = urgent? Math.round(subtotal*(1+cfg().urgentPercent/100)) : subtotal;
   var days = calcDueDays(unitsTotal, urgent);
-  var due = addDays(todayIso(), days);
+  var due = nextWorkingDay(addDays(todayIso(), days));
 
   var linksHtml = state.ui.linkRows.map(function(lr, i){
     return '<div class="link-row"><input type="text" placeholder="Например: верхняя дуга" data-act="linkLabel" data-i="'+i+'" value="'+esc(lr.label)+'"><input type="url" placeholder="Ссылка на файл (Google Drive, Яндекс.Диск и т.п.)" data-act="linkUrl" data-i="'+i+'" value="'+esc(lr.url)+'"></div>';
@@ -1314,7 +1349,7 @@ function renderMiniToothChart(selected, idx){
       return '<button type="button" class="tooth-btn'+(selected.indexOf(t)>-1?' on':'')+'" data-act="toggleTooth" data-idx="'+idx+'" data-t="'+t+'">'+t+'</button>';
     }).join('')+'</div>';
   }
-  return '<div class="tooth-chart">'+row('q1',true)+row('q2',false)+row('q4',true)+row('q3',false)+'</div>';
+  return '<div class="tooth-chart">'+row('q1',false)+row('q2',false)+row('q4',false)+row('q3',false)+'</div>';
 }
 
 /* ---------- DOCTOR SHELL ---------- */
@@ -1537,6 +1572,26 @@ document.addEventListener('click', async function(e){
   if(act==='removeStage'){ var i=+el.getAttribute('data-i'); cfg().stages.splice(i,1); state.data.config = Object.assign({}, cfg()); render(); return; }
   if(act==='addTierField'){ cfg().deadlineTiers.push({maxUnits:20, days:7}); state.data.config = Object.assign({}, cfg()); render(); return; }
   if(act==='removeTier'){ var ti=+el.getAttribute('data-i'); cfg().deadlineTiers.splice(ti,1); state.data.config = Object.assign({}, cfg()); render(); return; }
+  if(act==='toggleNonWorkingDay'){
+    var wd = +el.getAttribute('data-wd');
+    if(!cfg().nonWorkingWeekdays) cfg().nonWorkingWeekdays = [];
+    var pos = cfg().nonWorkingWeekdays.indexOf(wd);
+    if(pos>-1) cfg().nonWorkingWeekdays.splice(pos,1); else cfg().nonWorkingWeekdays.push(wd);
+    render(); return;
+  }
+  if(act==='addHoliday'){
+    var hInput = document.getElementById('newHolidayDate');
+    var hVal = hInput ? hInput.value : '';
+    if(!hVal){ toast('Выберите дату'); return; }
+    if(!cfg().holidays) cfg().holidays = [];
+    if(cfg().holidays.indexOf(hVal)===-1) cfg().holidays.push(hVal);
+    render(); return;
+  }
+  if(act==='removeHoliday'){
+    var hd = el.getAttribute('data-d');
+    if(cfg().holidays){ var hpos = cfg().holidays.indexOf(hd); if(hpos>-1) cfg().holidays.splice(hpos,1); }
+    render(); return;
+  }
 
   if(act==='clearDemo'){
     if(!state.db) return;
@@ -1627,7 +1682,7 @@ document.addEventListener('submit', async function(e){
     var urgent = !!state.ui.orderUrgent;
     var total = urgent? Math.round(subtotal*(1+cfg().urgentPercent/100)) : subtotal;
     var days = calcDueDays(unitsTotal, urgent);
-    var due = addDays(todayIso(), days);
+    var due = nextWorkingDay(addDays(todayIso(), days));
     var links = state.ui.linkRows.filter(function(l){return l.url;})
       .concat((state.ui.uploadFiles||[]).filter(function(f){return f.status==='done';}).map(function(f){return {label:f.name, url:f.url};}));
 
@@ -1765,7 +1820,8 @@ document.addEventListener('submit', async function(e){
     var newCfg = Object.assign({}, cfg(), {
       labName: fd.get('labName'), urgentDays:+fd.get('urgentDays'), urgentPercent:+fd.get('urgentPercent'),
       stages: cfg().stages.slice(), deadlineTiers: cfg().deadlineTiers.slice(),
-      payouts: { technician: Object.assign({}, cfg().payouts.technician), miller: Object.assign({}, cfg().payouts.miller) }
+      payouts: { technician: Object.assign({}, cfg().payouts.technician), miller: Object.assign({}, cfg().payouts.miller) },
+      nonWorkingWeekdays: (cfg().nonWorkingWeekdays||[]).slice(), holidays: (cfg().holidays||[]).slice()
     });
     delete newCfg.urgentMultiplier; delete newCfg.techSharePercent;
     await state.db.doc('settings/config').set(newCfg);
