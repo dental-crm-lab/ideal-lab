@@ -101,6 +101,7 @@ button{font-family:inherit; font-size:inherit;}
 .sidebar{
   width:236px; flex-shrink:0; background:var(--slate); color:var(--slate-ink);
   display:flex; flex-direction:column; padding:20px 14px; gap:4px;
+  overflow-y:auto;
 }
 .brand{display:flex; flex-direction:column; gap:2px; padding:2px 8px 18px; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,.09);}
 .brand .word{font-family:var(--font-display); font-weight:700; font-size:22px; color:#fff; letter-spacing:.5px;}
@@ -120,6 +121,8 @@ button{font-family:inherit; font-size:inherit;}
 .who b{color:#fff; font-weight:600; font-size:13.5px;}
 .logout-btn{width:100%; text-align:left; padding:8px 10px; border-radius:8px; background:none; border:none; color:#C6D0D8; cursor:pointer; font-size:13px;}
 .logout-btn:hover{background:rgba(255,255,255,.06); color:#fff;}
+.sidebar-backdrop{display:none;}
+.hamburger-btn{display:none; align-items:center; justify-content:center; width:38px; height:38px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:18px; cursor:pointer; flex-shrink:0;}
 
 .main{flex:1; min-width:0; display:flex; flex-direction:column;}
 .topbar{
@@ -127,6 +130,7 @@ button{font-family:inherit; font-size:inherit;}
   padding:14px 26px; border-bottom:1px solid var(--border); background:var(--surface);
   position:sticky; top:0; z-index:5;
 }
+.topbar-left{display:flex; align-items:center; gap:12px; min-width:0;}
 .topbar h1{font-size:19px;}
 .content{padding:22px 26px 60px; overflow-x:hidden;}
 .content-inner{max-width:1180px;}
@@ -330,7 +334,14 @@ tr:last-child td{border-bottom:none;}
   .cal-nav b{min-width:auto;}
 }
 @media (max-width:880px){
-  .sidebar{display:none;}
+  .sidebar{
+    position:fixed; top:0; left:0; height:100vh; z-index:60;
+    transform:translateX(-100%); transition:transform .22s ease; box-shadow:var(--shadow);
+  }
+  .sidebar.open{transform:translateX(0);}
+  .sidebar-backdrop{display:block; position:fixed; inset:0; background:rgba(15,20,23,.5); z-index:55; opacity:0; pointer-events:none; transition:opacity .22s ease;}
+  .sidebar-backdrop.show{opacity:1; pointer-events:auto;}
+  .hamburger-btn{display:inline-flex;}
   .content{padding:16px;}
   .topbar{padding:12px 16px;}
 }
@@ -418,7 +429,7 @@ var state = {
   session: null,
   view: 'board',
   data:{staff:[], doctors:[], orders:[], payments:[], expenses:[], timeoff:[], priceList:[], config:null, activity:[]},
-  ui:{ openOrderId:null, draftItems:[], loginStep:'choice', loginStaffId:null, pinBuf:'', docPhone:'', staffForm:null, doctorForm:null, staffEditId:null, plEdit:false, toast:null, orderFilter:'', boardOnlyMine:true, newOrderDoctorMode:'existing', linkRows:[{label:'',url:''}], uploadFiles:[], settingsDraft:null, calMonth:null, orderSort:null, pushChecked:false, pushSubscribed:false,
+  ui:{ openOrderId:null, draftItems:[], loginStep:'choice', loginStaffId:null, pinBuf:'', docPhone:'', staffForm:null, doctorForm:null, staffEditId:null, plEdit:false, toast:null, orderFilter:'', boardOnlyMine:true, newOrderDoctorMode:'existing', linkRows:[{label:'',url:''}], uploadFiles:[], settingsDraft:null, calMonth:null, orderSort:null, pushChecked:false, pushSubscribed:false, mobileNavOpen:false,
        orderFields:{patientName:'', doctorId:'', newDoctorName:'', newDoctorClinic:'', newDoctorPhone:'', notes:'', material:''} }
 };
 
@@ -629,7 +640,7 @@ function saveSession(){
     else localStorage.setItem('ideal_session', JSON.stringify({type:'doctor', docId:state.session.doctor.id}));
   }catch(e){}
 }
-function logout(){ state.session=null; state.ui.loginStep='choice'; state.ui.loginStaffId=null; state.ui.pinBuf=''; saveSession(); render(); }
+function logout(){ state.session=null; state.ui.loginStep='choice'; state.ui.loginStaffId=null; state.ui.pinBuf=''; state.ui.mobileNavOpen=false; saveSession(); render(); }
 
 /* ============================= BUSINESS LOGIC ============================= */
 function calcDueDays(units, urgent){
@@ -807,7 +818,7 @@ function renderStaffShell(){
   var title = {board:'Доска заказов', calendar:'Календарь заказов', orders:'Все заказы', finance:'Финансы', schedule:'График и отгулы', staffadmin:'Сотрудники', doctorsadmin:'Врачи', pricelist:'Прайс-лист', history:'История изменений', settings:'Настройки', neworder:'Новый заказ'}[v] || 'IDEAL';
 
   return '<div class="shell">'+
-    '<div class="sidebar">'+
+    '<div class="sidebar'+(state.ui.mobileNavOpen?' open':'')+'">'+
       '<div class="brand"><div class="word">IDEAL<em>.</em></div><div class="stripe"></div><div class="tag">CAD-CAM Lab</div></div>'+
       '<div class="navgroup-label">Разделы</div>'+nav+
       '<div class="sidebar-foot">'+
@@ -816,8 +827,9 @@ function renderStaffShell(){
         '<button class="logout-btn" data-act="logout">Выйти</button>'+
       '</div>'+
     '</div>'+
+    '<div class="sidebar-backdrop'+(state.ui.mobileNavOpen?' show':'')+'" data-act="closeMobileNav"></div>'+
     '<div class="main">'+
-      '<div class="topbar"><h1>'+title+'</h1><div class="btn-row"><button class="btn primary" data-act="openNewOrder">+ Новый заказ</button></div></div>'+
+      '<div class="topbar"><div class="topbar-left"><button class="hamburger-btn" data-act="toggleMobileNav" aria-label="Меню">☰</button><h1>'+title+'</h1></div><div class="btn-row"><button class="btn primary" data-act="openNewOrder">+ Новый заказ</button></div></div>'+
       '<div class="content"><div class="content-inner">'+viewHtml+'</div></div>'+
     '</div></div>';
 }
@@ -1473,6 +1485,11 @@ document.addEventListener('drop', function(e){
   var files = Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []);
   files.forEach(function(f){ startUpload(f); });
 });
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape') return;
+  if(state.ui.openOrderId){ state.ui.openOrderId = null; render(); return; }
+  if(state.ui.mobileNavOpen){ state.ui.mobileNavOpen = false; render(); return; }
+});
 document.addEventListener('click', async function(e){
   var el = e.target.closest('[data-act]');
   if(!el) return;
@@ -1501,9 +1518,11 @@ document.addEventListener('click', async function(e){
   if(act==='pinClear'){ state.ui.pinBuf=''; render(); return; }
   if(act==='logout'){ logout(); return; }
 
-  if(act==='nav'){ state.view = el.getAttribute('data-v'); render(); return; }
+  if(act==='nav'){ state.view = el.getAttribute('data-v'); state.ui.mobileNavOpen = false; render(); return; }
   if(act==='navdoc'){ state.view = el.getAttribute('data-v'); render(); return; }
   if(act==='openNewOrder'){ openOrderForm('staff'); return; }
+  if(act==='toggleMobileNav'){ state.ui.mobileNavOpen = !state.ui.mobileNavOpen; render(); return; }
+  if(act==='closeMobileNav'){ state.ui.mobileNavOpen = false; render(); return; }
 
   if(act==='openOrder'){ state.ui.openOrderId = el.getAttribute('data-id'); render(); return; }
   if(act==='closeModal'){ state.ui.openOrderId=null; render(); return; }
