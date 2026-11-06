@@ -122,6 +122,7 @@ button{font-family:inherit; font-size:inherit;}
 .logout-btn{width:100%; text-align:left; padding:8px 10px; border-radius:8px; background:none; border:none; color:#C6D0D8; cursor:pointer; font-size:13px;}
 .logout-btn:hover{background:rgba(255,255,255,.06); color:#fff;}
 .sidebar-backdrop{display:none;}
+.hist-detail{background:var(--surface-2, rgba(127,127,127,.06)); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin:4px 0 8px;}
 .hamburger-btn{display:none; align-items:center; justify-content:center; width:38px; height:38px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:18px; cursor:pointer; flex-shrink:0;}
 
 .main{flex:1; min-width:0; display:flex; flex-direction:column;}
@@ -675,13 +676,42 @@ function startSubscriptions(){
 }
 
 /* ============================= ACTIVITY LOG ============================= */
-function logActivity(kind, text){
+function logActivity(kind, text, meta){
   if(!state.db) return;
   var who = '—';
   if(state.session){
     who = state.session.type==='staff' ? state.session.staff.name : (state.session.doctor.name+' (врач)');
   }
-  state.db.collection('activity').add({ kind:kind, text:text, who:who, at:new Date().toISOString(), demo:false }).catch(function(e){ console.error(e); });
+  var rec = { kind:kind, text:text, who:who, at:new Date().toISOString(), demo:false };
+  if(meta) rec.meta = meta;
+  state.db.collection('activity').add(rec).catch(function(e){ console.error(e); });
+}
+
+// Ссылки из заказов вводятся пользователями — открываем только http(s) и файлы с нашего сервера
+// (иначе javascript:-ссылка выполнилась бы в контексте приложения).
+function safeUrl(u){
+  u = String(u||'').trim();
+  if(/^https?:\/\//i.test(u) || /^\/uploads\//.test(u)) return u;
+  return '';
+}
+
+// Снимок заказа для истории изменений (сохраняется в записи активности перед удалением заказа).
+function orderSnapshot(o, pays){
+  return {
+    type:'order_snapshot',
+    order:{
+      code:o.code, patientName:o.patientName||'', doctorName:o.doctorName||'', clinicName:o.clinicName||'',
+      material:o.material||null, dueDate:o.dueDate||'', createdAt:o.createdAt||'', stage:o.stage||'',
+      urgent:!!o.urgent, subtotal:o.subtotal||0, total:o.total||0, notes:o.notes||'',
+      assignedStaffName: o.assignedStaffId ? staffName(o.assignedStaffId) : '',
+      assignedMillerName: o.assignedMillerId ? staffName(o.assignedMillerId) : '',
+      items:(o.items||[]).map(function(li){
+        return {name:li.name, unit:li.unit, teeth:(li.teeth||[]).slice(), qty:li.qty||null, addon:!!li.addon, lineTotal:li.lineTotal||0};
+      }),
+      links:(o.links||[]).filter(function(l){return l && l.url;}).map(function(l){ return {label:l.label||'', url:l.url}; })
+    },
+    payments:(pays||[]).map(function(p){ return {amount:p.amount||0, date:p.date||'', method:p.method||''}; })
+  };
 }
 
 /* ============================= SESSION ============================= */
@@ -1040,7 +1070,7 @@ function renderModal(){
     var teethStr = li.unit==='tooth' ? (li.teeth||[]).join(', ') : (li.qty+' шт.');
     return '<tr><td>'+esc(li.name)+(li.addon?'<div class="faint">+ доп. основание</div>':'')+'</td><td class="mono">'+teethStr+'</td>'+(moneyOk?'<td class="mono">'+fmtMoney(li.lineTotal)+'</td>':'')+'</tr>';
   }).join('');
-  var linksHtml = (o.links||[]).filter(function(l){return l.url;}).map(function(l){ return '<div><a href="'+esc(l.url)+'" target="_blank" rel="noopener" style="color:var(--accent);">'+esc(l.label||'Ссылка')+' →</a></div>'; }).join('') || '<span class="faint">Нет ссылок</span>';
+  var linksHtml = (o.links||[]).filter(function(l){return safeUrl(l.url);}).map(function(l){ return '<div><a href="'+esc(safeUrl(l.url))+'" target="_blank" rel="noopener" style="color:var(--accent);">'+esc(l.label||'Ссылка')+' →</a></div>'; }).join('') || '<span class="faint">Нет ссылок</span>';
 
   var techs = state.data.staff.filter(function(s){return s.role==='technician' && s.active!==false;});
   var millers = state.data.staff.filter(function(s){return s.role==='miller' && s.active!==false;});
@@ -1268,14 +1298,59 @@ function renderStaffAdmin(){
 }
 
 /* ---------- HISTORY / ACTIVITY LOG ---------- */
+function historySnapshotHtml(m){
+  var o = m.order || {};
+  var money = canSeeMoney();
+  var items = (o.items||[]).map(function(li){
+    var cnt = li.unit==='tooth' ? (li.teeth||[]).join(', ') : ((li.qty||1)+' шт.');
+    return '<tr><td>'+esc(li.name)+(li.addon?'<div class="faint">+ доп. основание</div>':'')+'</td><td class="mono">'+esc(cnt)+'</td>'+(money?'<td class="mono">'+fmtMoney(li.lineTotal)+'</td>':'')+'</tr>';
+  }).join('');
+  var links = (o.links||[]).map(function(l){
+    var u = safeUrl(l.url);
+    return u ? '<div><a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:var(--accent);">'+esc(l.label||'Файл / ссылка')+' →</a></div>'
+             : '<div class="faint">'+esc(l.label||'Ссылка')+' — адрес недоступен для открытия</div>';
+  }).join('') || '<span class="faint">Нет ссылок</span>';
+  var pays = m.payments || [];
+  var paidSum = pays.reduce(function(a,p){return a+(p.amount||0);},0);
+  var moneyHtml = '';
+  if(money){
+    moneyHtml = '<b>Сумма заказа</b><span class="mono">'+fmtMoney(o.total)+(o.urgent?' <span class="badge crit">срочно</span>':'')+'</span>'+
+      '<b>Было оплачено</b><span class="mono">'+fmtMoney(paidSum)+'</span>'+
+      (pays.length ? '<b>Оплаты</b><span>'+pays.map(function(p){return '<div class="faint">'+fmtDate(p.date)+' — '+fmtMoney(p.amount)+(p.method?' ('+esc(p.method)+')':'')+'</div>';}).join('')+'</span>' : '');
+  }
+  return '<div class="hist-detail">'+
+    '<div class="kv">'+
+      '<b>Заказ</b><span class="mono">'+esc(o.code||'')+'</span>'+
+      '<b>Пациент</b><span>'+esc(o.patientName||'—')+'</span>'+
+      '<b>Врач</b><span>'+esc(o.doctorName||'—')+'</span>'+
+      '<b>Клиника</b><span>'+esc(o.clinicName||'—')+'</span>'+
+      '<b>Материал</b><span>'+materialLabel(o.material)+'</span>'+
+      '<b>Создан</b><span>'+fmtDate((o.createdAt||'').slice(0,10))+'</span>'+
+      '<b>Срок сдачи</b><span>'+fmtDate(o.dueDate)+'</span>'+
+      '<b>Этап на момент удаления</b><span>'+esc(o.stage||'—')+'</span>'+
+      (o.assignedStaffName ? '<b>Техник</b><span>'+esc(o.assignedStaffName)+'</span>' : '')+
+      (o.assignedMillerName ? '<b>Фрезеровщик</b><span>'+esc(o.assignedMillerName)+'</span>' : '')+
+      moneyHtml+
+    '</div>'+
+    '<div class="hint" style="margin:10px 0 4px;">Позиции заказа</div>'+
+    '<div class="table-wrap"><table><thead><tr><th>Работа</th><th>Зубы / кол-во</th>'+(money?'<th>Сумма</th>':'')+'</tr></thead><tbody>'+(items || '<tr><td colspan="3" class="empty-state">Позиций нет</td></tr>')+'</tbody></table></div>'+
+    (o.notes ? '<div class="hint" style="margin:10px 0 4px;">Примечание</div><div>'+esc(o.notes)+'</div>' : '')+
+    '<div class="hint" style="margin:10px 0 4px;">Файлы / сканы</div>'+links+
+  '</div>';
+}
 function renderHistory(){
+  var open = state.ui.historyOpen || {};
   var rows = state.data.activity.map(function(a){
-    var d = new Date(a.at); var dd = isNaN(d)?a.at:(fmtDate(a.at.slice(0,10))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'));
-    return '<tr><td class="mono" style="white-space:nowrap;">'+dd+'</td><td>'+esc(a.who||'—')+'</td><td>'+esc(a.text||'')+'</td></tr>';
+    var d = new Date(a.at); var dd = isNaN(d)||!a.at ? (a.at||'—') : (fmtDate(a.at.slice(0,10))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'));
+    var hasSnap = a.meta && a.meta.type==='order_snapshot' && a.meta.order;
+    var btn = hasSnap ? ' <button class="btn sm ghost" type="button" data-act="toggleHistory" data-id="'+a.id+'">'+(open[a.id]?'Скрыть':'Подробнее')+'</button>' : '';
+    var main = '<tr><td class="mono" style="white-space:nowrap;">'+dd+'</td><td>'+esc(a.who||'—')+'</td><td>'+esc(a.text||'')+btn+'</td></tr>';
+    if(hasSnap && open[a.id]) main += '<tr class="hist-row"><td colspan="3">'+historySnapshotHtml(a.meta)+'</td></tr>';
+    return main;
   }).join('');
   return '<div class="table-wrap"><table><thead><tr><th>Когда</th><th>Кто</th><th>Что произошло</th></tr></thead><tbody>'+
     (rows || '<tr><td colspan="3" class="empty-state">Записей пока нет</td></tr>')+'</tbody></table></div>'+
-    '<p class="hint" style="margin-top:10px;">Здесь фиксируются добавления, изменения и удаления заказов, сотрудников, цен и настроек.</p>';
+    '<p class="hint" style="margin-top:10px;">Здесь фиксируются добавления, изменения и удаления заказов, сотрудников, цен и настроек. У удалённых заказов кнопка «Подробнее» показывает снимок заказа на момент удаления.</p>';
 }
 
 /* ---------- DOCTORS ADMIN ---------- */
@@ -1665,9 +1740,10 @@ document.addEventListener('click', async function(e){
     if(!isOwner()){ toast('Удалять заказы может только владелец'); return; }
     var delOid = el.getAttribute('data-id');
     var ordDel = state.data.orders.filter(function(x){return x.id===delOid;})[0];
-    if(!confirm('Удалить заказ '+(ordDel?ordDel.code:'')+' без возможности восстановления?')) return;
+    if(!confirm('Удалить заказ '+(ordDel?ordDel.code:'')+' без возможности восстановления?\n\nВместе с заказом будут удалены его оплаты. Снимок заказа сохранится в «Истории изменений».')) return;
+    var delSnap = ordDel ? orderSnapshot(ordDel, state.data.payments.filter(function(x){return x.orderId===delOid;})) : null;
     await state.db.collection('orders').doc(delOid).delete();
-    logActivity('order_delete', 'Удалён заказ '+(ordDel?ordDel.code:delOid)+' — '+(ordDel?ordDel.patientName:''));
+    logActivity('order_delete', 'Удалён заказ '+(ordDel?ordDel.code:delOid)+' — '+(ordDel?ordDel.patientName:''), delSnap);
     state.ui.openOrderId = null;
     toast('Заказ удалён'); return;
   }
@@ -1777,6 +1853,12 @@ document.addEventListener('click', async function(e){
     }
     toast('Демо-данные удалены');
     return;
+  }
+  if(act==='toggleHistory'){
+    var hid = el.getAttribute('data-id');
+    state.ui.historyOpen = state.ui.historyOpen || {};
+    state.ui.historyOpen[hid] = !state.ui.historyOpen[hid];
+    render(); return;
   }
   if(act==='editPayment'){ state.ui.editPaymentId = el.getAttribute('data-id'); render(); return; }
   if(act==='cancelEditPayment'){ state.ui.editPaymentId = null; render(); return; }
