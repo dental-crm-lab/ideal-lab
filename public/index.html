@@ -462,20 +462,39 @@ function cfg(){ return state.data.config || DEFAULT_CONFIG; }
 /* ============================= INIT / API DB CLIENT ============================= */
 // Thin client that mimics the collection/doc interface the app was built
 // against, backed by the standalone REST API + Socket.IO (see server/).
+var authToken = null; // токен сессии (выдаётся сервером после входа)
+function authHeaders(extra){
+  var h = Object.assign({}, extra||{});
+  if(authToken) h['Authorization'] = 'Bearer '+authToken;
+  return h;
+}
+async function apiPost(url, body){
+  var res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
+  var data = null; try{ data = await res.json(); }catch(e){}
+  return {ok:res.ok, status:res.status, data:data};
+}
 function createApiDb(){
-  var socket = (typeof io === 'function') ? io({transports:['websocket','polling']}) : null;
+  var socket = null;
   var listeners = []; // {collection, cb}
-  if(socket){
+  function connect(){
+    if(socket || typeof io !== 'function') return;
+    socket = io({transports:['websocket','polling'], auth:function(cb){ cb({token:authToken}); }});
     socket.on('change', function(evt){
       listeners.forEach(function(l){ if(l.collection===evt.collection) l.cb(); });
     });
   }
+  function close(){
+    if(socket){ socket.close(); socket = null; }
+    listeners = [];
+  }
   async function req(method, url, body){
     var res = await fetch(url, {
       method: method,
-      headers: body!==undefined ? {'Content-Type':'application/json'} : undefined,
+      headers: authHeaders(body!==undefined ? {'Content-Type':'application/json'} : undefined),
       body: body!==undefined ? JSON.stringify(body) : undefined
     });
+    if(res.status===401 && authToken){ handleAuthLost(); throw new Error('Сессия истекла — войдите заново'); }
+    if(res.status===403) throw new Error('Недостаточно прав для этого действия');
     if(!res.ok){ var t=''; try{t=await res.text();}catch(e){} throw new Error('HTTP '+res.status+' '+t); }
     return res.json();
   }
@@ -520,6 +539,7 @@ function createApiDb(){
     };
   }
   return {
+    connect: connect, close: close,
     doc: function(path){ var parts=path.split('/'); return makeDocRef(parts[0], parts.slice(1).join('/')); },
     collection: function(path){ return makeCollRef(path); }
   };
@@ -529,8 +549,37 @@ async function init(){
   render();
   var db = null;
   try{ db = createApiDb(); }catch(e){ console.error(e); db = null; }
-  state.db = db; state.dbTried = true;
-  if(!db){ render(); return; }
+  state.db = db;
+  if(db){
+    // до входа доступен только список имён сотрудников (без PIN) — для экрана выбора
+    try{
+      var sl = await fetch('/api/public/staff-list');
+      if(!sl.ok) throw new Error('HTTP '+sl.status);
+      state.data.staff = await sl.json();
+    }catch(e){ console.error(e); state.db = null; }
+  }
+  // восстановление сессии по сохранённому токену (проверяется сервером)
+  var saved = loadToken();
+  if(saved && state.db){
+    authToken = saved;
+    try{
+      var me = await fetch('/api/auth/me', {headers:authHeaders()});
+      if(!me.ok) throw new Error('HTTP '+me.status);
+      var md = await me.json();
+      state.session = md.type==='staff' ? {type:'staff', staff:md.staff} : {type:'doctor', doctor:md.doctor};
+      if(md.type==='doctor') state.view = 'neworder';
+    }catch(e){ authToken = null; saveToken(null); }
+  }
+  state.dbTried = true;
+  render();
+  if(state.session) startSubscriptions();
+}
+
+function isStaffSess(){ return state.session && state.session.type==='staff'; }
+function startSubscriptions(){
+  var db = state.db;
+  if(!db) return;
+  db.connect();
 
   db.doc('settings/config').onSnapshot(function(snap){
     var raw = snap.exists ? snap.data() : {};
@@ -563,9 +612,8 @@ async function init(){
     render();
   }, function(e){ console.error(e); });
 
-  db.collection('staff').onSnapshot(function(qs){
+  if(isStaffSess()) db.collection('staff').onSnapshot(function(qs){
     state.data.staff = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
-    restoreSession();
     // keep an active staff session's own record (role, name, pin…) in sync so
     // e.g. a self role change (admin -> owner) takes effect without re-login
     if(state.session && state.session.type==='staff'){
@@ -577,7 +625,6 @@ async function init(){
 
   db.collection('doctors').onSnapshot(function(qs){
     state.data.doctors = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
-    restoreSession();
     render();
   }, function(e){ console.error(e); });
 
@@ -586,22 +633,22 @@ async function init(){
     render();
   }, function(e){ console.error(e); });
 
-  db.collection('payments').onSnapshot(function(qs){
+  if(state.session.type==='doctor' || canSeeMoney()) db.collection('payments').onSnapshot(function(qs){
     state.data.payments = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
     render();
   }, function(e){ console.error(e); });
 
-  db.collection('expenses').onSnapshot(function(qs){
+  if(isStaffSess() && canSeeMoney()) db.collection('expenses').onSnapshot(function(qs){
     state.data.expenses = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
     render();
   }, function(e){ console.error(e); });
 
-  db.collection('timeoff').onSnapshot(function(qs){
+  if(isStaffSess()) db.collection('timeoff').onSnapshot(function(qs){
     state.data.timeoff = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
     render();
   }, function(e){ console.error(e); });
 
-  db.collection('activity').orderBy('at','desc').limit(400).onSnapshot(function(qs){
+  if(isAdmin()) db.collection('activity').orderBy('at','desc').limit(400).onSnapshot(function(qs){
     state.data.activity = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
     render();
   }, function(e){ console.error(e); });
@@ -618,29 +665,31 @@ function logActivity(kind, text){
 }
 
 /* ============================= SESSION ============================= */
-function restoreSession(){
-  if(state.session) return;
-  try{
-    var raw = localStorage.getItem('ideal_session');
-    if(!raw) return;
-    var s = JSON.parse(raw);
-    if(s.type==='staff'){
-      var st = state.data.staff.filter(function(x){return x.id===s.staffId && x.active!==false;})[0];
-      if(st) state.session = {type:'staff', staff:st};
-    } else if(s.type==='doctor'){
-      var doc = state.data.doctors.filter(function(x){return x.id===s.docId;})[0];
-      if(doc) state.session = {type:'doctor', doctor:doc};
-    }
-  }catch(e){}
+function loadToken(){ try{ return localStorage.getItem('ideal_token'); }catch(e){ return null; } }
+function saveToken(t){ try{ if(t) localStorage.setItem('ideal_token', t); else { localStorage.removeItem('ideal_token'); localStorage.removeItem('ideal_session'); } }catch(e){} }
+// вызывается после успешного входа: сервер выдал токен
+function startSession(token, session){
+  authToken = token; saveToken(token);
+  state.session = session;
+  state.view = session.type==='doctor' ? 'neworder' : 'board';
+  state.ui.pinBuf = ''; state.ui.mobileNavOpen = false;
+  render();
+  startSubscriptions();
 }
-function saveSession(){
-  try{
-    if(!state.session){ localStorage.removeItem('ideal_session'); return; }
-    if(state.session.type==='staff') localStorage.setItem('ideal_session', JSON.stringify({type:'staff', staffId:state.session.staff.id}));
-    else localStorage.setItem('ideal_session', JSON.stringify({type:'doctor', docId:state.session.doctor.id}));
-  }catch(e){}
+function handleAuthLost(){
+  if(!state.session) return;
+  logout();
+  toast('Сессия истекла или права изменены — войдите заново');
 }
-function logout(){ state.session=null; state.ui.loginStep='choice'; state.ui.loginStaffId=null; state.ui.pinBuf=''; state.ui.mobileNavOpen=false; saveSession(); render(); }
+function logout(){
+  state.session=null; state.ui.loginStep='choice'; state.ui.loginStaffId=null; state.ui.pinBuf=''; state.ui.mobileNavOpen=false; state.ui.openOrderId=null;
+  authToken = null; saveToken(null);
+  if(state.db) state.db.close();
+  // не держим в памяти данные прошлой сессии (деньги, заказы, контакты)
+  state.data = {staff:[], doctors:[], orders:[], payments:[], expenses:[], timeoff:[], priceList:[], config:null, activity:[]};
+  render();
+  fetch('/api/public/staff-list').then(function(r){return r.json();}).then(function(l){ if(!state.session){ state.data.staff = l; render(); } }).catch(function(){});
+}
 
 /* ============================= BUSINESS LOGIC ============================= */
 function calcDueDays(units, urgent){
@@ -1125,7 +1174,7 @@ function renderStaffAdmin(){
 
   var owner = isOwner();
   var rows = state.data.staff.map(function(s){
-    return '<tr><td>'+esc(s.name)+(s.demo?'<span class="demo-tag">демо</span>':'')+'</td><td>'+(STAFF_ROLES[s.role]?STAFF_ROLES[s.role].label:s.role)+'</td><td class="mono">'+esc(s.phone||'—')+'</td><td class="mono">'+esc(s.pin||'')+'</td>'+
+    return '<tr><td>'+esc(s.name)+(s.demo?'<span class="demo-tag">демо</span>':'')+'</td><td>'+(STAFF_ROLES[s.role]?STAFF_ROLES[s.role].label:s.role)+'</td><td class="mono">'+esc(s.phone||'—')+'</td><td class="mono" title="PIN скрыт. Чтобы изменить — нажмите «Изменить» и введите новый.">••••</td>'+
       '<td>'+(s.active!==false?'<span class="badge good">активен</span>':'<span class="badge neutral">неактивен</span>')+'</td>'+
       '<td class="btn-row">'+
         '<button class="btn sm ghost" data-act="editStaff" data-id="'+s.id+'">Изменить</button>'+
@@ -1140,7 +1189,7 @@ function renderStaffAdmin(){
       '<label class="field">Имя<input type="text" name="name" value="'+esc(editStaff.name)+'" required></label>'+
       '<label class="field">Роль<select name="role">'+Object.keys(STAFF_ROLES).map(function(r){return '<option value="'+r+'"'+(editStaff.role===r?' selected':'')+'>'+STAFF_ROLES[r].label+'</option>';}).join('')+'</select></label>'+
       '<label class="field">Телефон<input type="tel" name="phone" value="'+esc(editStaff.phone||'')+'"></label>'+
-      '<label class="field">PIN (4 цифры)<input type="text" name="pin" pattern="[0-9]{4}" maxlength="4" value="'+esc(editStaff.pin||'')+'" required></label>'+
+      '<label class="field">Новый PIN (4 цифры)<input type="text" name="pin" pattern="[0-9]{4}" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="не менять" ></label>'+
       '<button class="btn primary" type="submit">Сохранить</button>'+
       '<button class="btn ghost" type="button" data-act="cancelEditStaff">Отмена</button>'+
     '</form>'
@@ -1445,6 +1494,7 @@ function startUpload(file){
   var fd = new FormData(); fd.append('file', file);
   var xhr = new XMLHttpRequest();
   xhr.open('POST', '/api/upload');
+  if(authToken) xhr.setRequestHeader('Authorization', 'Bearer '+authToken);
   xhr.upload.onprogress = function(e){
     if(e.lengthComputable && state.ui.uploadFiles[idx]){
       state.ui.uploadFiles[idx].progress = Math.round(e.loaded/e.total*100);
@@ -1453,6 +1503,7 @@ function startUpload(file){
   };
   xhr.onload = function(){
     if(!state.ui.uploadFiles[idx]) return;
+    if(xhr.status===401){ handleAuthLost(); return; }
     if(xhr.status>=200 && xhr.status<300){
       try{
         var r = JSON.parse(xhr.responseText);
@@ -1504,14 +1555,19 @@ document.addEventListener('click', async function(e){
   if(act==='loginBack'){ state.ui.loginStep='choice'; state.ui.pinBuf=''; render(); return; }
   if(act==='pickStaff'){ state.ui.loginStaffId = el.getAttribute('data-id'); state.ui.loginStep='pin'; state.ui.pinBuf=''; render(); return; }
   if(act==='pinDigit'){
+    if(state.ui.pinBusy) return;
     state.ui.pinBuf += el.getAttribute('data-d');
     if(state.ui.pinBuf.length>=4){
-      var st = state.data.staff.filter(function(s){return s.id===state.ui.loginStaffId;})[0];
-      if(st && st.pin===state.ui.pinBuf){
-        state.session = {type:'staff', staff:st}; saveSession(); state.view='board'; state.ui.pinBuf='';
-      } else {
-        toast('Неверный PIN'); state.ui.pinBuf='';
-      }
+      var pinTry = state.ui.pinBuf;
+      state.ui.pinBusy = true; render();
+      var lr = null;
+      try{ lr = await apiPost('/api/auth/staff', {id:state.ui.loginStaffId, pin:pinTry}); }catch(e){ lr = {ok:false, status:0}; }
+      state.ui.pinBusy = false;
+      if(lr.ok){ startSession(lr.data.token, {type:'staff', staff:lr.data.staff}); return; }
+      state.ui.pinBuf='';
+      if(lr.status===429) toast('Слишком много попыток. Повторите через '+Math.ceil(((lr.data&&lr.data.retryInSec)||600)/60)+' мин.');
+      else if(lr.status===0) toast('Нет соединения с сервером');
+      else toast('Неверный PIN');
     }
     render(); return;
   }
@@ -1709,18 +1765,17 @@ document.addEventListener('submit', async function(e){
     var phone = (fd.get('phone')||'').toString().replace(/[^\d+]/g,'');
     if(!phone){ toast('Введите номер'); return; }
     state.ui.docPhone = phone;
-    var existing = state.data.doctors.filter(function(d){return d.id===phone;})[0];
-    if(existing){ state.session={type:'doctor', doctor:existing}; saveSession(); state.view='neworder'; render(); }
+    var dr = await apiPost('/api/auth/doctor', {phone:phone});
+    if(dr.status===429){ toast('Слишком много попыток. Подождите несколько минут.'); return; }
+    if(!dr.ok){ toast('Нет соединения с сервером'); return; }
+    if(dr.data.exists){ startSession(dr.data.token, {type:'doctor', doctor:dr.data.doctor}); }
     else { state.ui.loginStep='docRegister'; render(); }
     return;
   }
   if(act==='submitDocRegister'){
-    if(!state.db){ toast('Хранилище недоступно'); return; }
-    var name = fd.get('name'), clinic = fd.get('clinic');
-    var docObj = {name:name, clinic:clinic, phone:state.ui.docPhone, demo:false, createdAt:new Date().toISOString()};
-    await state.db.collection('doctors').doc(state.ui.docPhone).set(docObj);
-    state.session = {type:'doctor', doctor:Object.assign({id:state.ui.docPhone}, docObj)};
-    saveSession(); state.view='neworder'; render();
+    var rr = await apiPost('/api/auth/register-doctor', {phone:state.ui.docPhone, name:fd.get('name'), clinic:fd.get('clinic')});
+    if(!rr.ok){ toast('Не удалось зарегистрироваться. Проверьте данные и соединение.'); return; }
+    startSession(rr.data.token, {type:'doctor', doctor:rr.data.doctor});
     return;
   }
 
@@ -1845,8 +1900,8 @@ document.addEventListener('submit', async function(e){
   if(act==='updateStaff'){
     if(!state.db) return;
     var editId2 = form.getAttribute('data-id');
-    await state.db.collection('staff').doc(editId2).update({name:fd.get('name'), role:fd.get('role'), phone:fd.get('phone')||'', pin:fd.get('pin')});
-    logActivity('staff_edit', 'Изменён сотрудник '+fd.get('name'));
+    await state.db.collection('staff').doc(editId2).update({name:fd.get('name'), role:fd.get('role'), phone:fd.get('phone')||'', pin:fd.get('pin')||''});
+    logActivity('staff_edit', 'Изменён сотрудник '+fd.get('name')+(fd.get('pin')?' (PIN сброшен)':''));
     state.ui.staffEditId = null;
     toast('Сотрудник обновлён'); return;
   }

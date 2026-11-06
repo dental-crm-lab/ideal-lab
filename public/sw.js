@@ -1,7 +1,7 @@
 // IDEAL Lab — minimal app-shell service worker.
 // Caches the static shell so the app opens instantly / offline-tolerant for
 // the UI chrome; all data (API + Socket.IO) always goes to the network.
-const CACHE = 'ideal-lab-shell-v1';
+const CACHE = 'ideal-lab-shell-v2';
 const SHELL = ['/', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -48,6 +48,17 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return; // never cache writes
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/') || url.pathname.startsWith('/uploads/')) {
     return; // always network — live data
+  }
+  // HTML-оболочка — сначала сеть (иначе после обновления сервера клиент мог бы
+  // один раз открыть старую версию, несовместимую с новым API/авторизацией).
+  if (req.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+    event.respondWith(
+      fetch(req).then((res) => {
+        if (res && res.ok) caches.open(CACHE).then((c) => c.put(req, res.clone()));
+        return res;
+      }).catch(() => caches.match(req).then((c) => c || caches.match('/')))
+    );
+    return;
   }
   event.respondWith(
     caches.match(req).then((cached) => {
