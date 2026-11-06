@@ -2374,7 +2374,7 @@ async function togglePush(){
 function pushErrorMessage(err){
   var name = err && err.name, msg = (err && err.message) || '';
   if(/push service|registration failed/i.test(msg) && !/permission/i.test(msg)){
-    return 'Браузер не смог подключиться к службе push-уведомлений (у Chrome/Edge это сервер Google FCM). Обычно причина — сеть блокирует доступ к ней (фаервол, VPN, некоторые провайдеры), либо браузер без Google-сервисов (Chromium, Brave с выключенным push, режим инкогнито). Попробуйте другую сеть/Wi-Fi или обычный Chrome; на iPhone — добавьте сайт на экран «Домой» и включите там.';
+    return 'Сеть блокирует доступ к push-службе браузера (у Chrome/Edge это серверы Google: fcmregistrations.googleapis.com и mtalk.google.com). Проверьте VPN, фаервол/антивирус и корпоративную сеть, либо попробуйте другую сеть (например, мобильный интернет). Сам сайт при этом работает нормально — блокируется только служба уведомлений.';
   }
   if(name==='NotAllowedError' || /permission/i.test(msg)){
     return 'Уведомления запрещены в настройках браузера для этого сайта. Разрешите их (значок замка рядом с адресом) и повторите.';
