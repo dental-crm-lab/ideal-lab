@@ -428,7 +428,7 @@ var state = {
   db:null, dbTried:false,
   session: null,
   view: 'board',
-  data:{staff:[], doctors:[], orders:[], payments:[], expenses:[], timeoff:[], priceList:[], config:null, activity:[]},
+  data:{staff:[], doctors:[], orders:[], payments:[], expenses:[], timeoff:[], priceList:[], config:null, activity:[], finance:null},
   ui:{ openOrderId:null, draftItems:[], loginStep:'choice', loginStaffId:null, pinBuf:'', docPhone:'', staffForm:null, doctorForm:null, staffEditId:null, plEdit:false, toast:null, orderFilter:'', boardOnlyMine:true, newOrderDoctorMode:'existing', linkRows:[{label:'',url:''}], uploadFiles:[], settingsDraft:null, calMonth:null, orderSort:null, pushChecked:false, pushSubscribed:false, mobileNavOpen:false,
        orderFields:{patientName:'', doctorId:'', newDoctorName:'', newDoctorClinic:'', newDoctorPhone:'', notes:'', material:''} }
 };
@@ -575,6 +575,26 @@ async function init(){
   if(state.session) startSubscriptions();
 }
 
+// Сводка (дебиторка, начисления) считается на сервере по ВСЕМ заказам,
+// т.к. в браузере хранятся только последние 500.
+var finTimer = null;
+function refreshFinance(){
+  if(!isStaffSess() || !canSeeMoney()) return;
+  clearTimeout(finTimer);
+  finTimer = setTimeout(async function(){
+    if(!authToken) return;
+    try{
+      var r = await fetch('/api/finance/summary', {headers:authHeaders()});
+      if(r.ok){
+        var fresh = await r.json();
+        var changed = JSON.stringify(fresh)!==JSON.stringify(state.data.finance);
+        state.data.finance = fresh;
+        // перерисовываем только раздел «Финансы» (иначе сбивали бы ввод в других формах)
+        if(changed && state.view==='finance' && !state.ui.openOrderId) render();
+      }
+    }catch(e){}
+  }, 250);
+}
 function isStaffSess(){ return state.session && state.session.type==='staff'; }
 function startSubscriptions(){
   var db = state.db;
@@ -604,7 +624,7 @@ function startSubscriptions(){
       };
     }
     state.data.config = merged;
-    render();
+    render(); refreshFinance();
   }, function(e){ console.error(e); });
 
   db.doc('settings/priceList').onSnapshot(function(snap){
@@ -630,12 +650,12 @@ function startSubscriptions(){
 
   db.collection('orders').orderBy('createdAt','desc').limit(500).onSnapshot(function(qs){
     state.data.orders = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
-    render();
+    render(); refreshFinance();
   }, function(e){ console.error(e); });
 
   if(state.session.type==='doctor' || canSeeMoney()) db.collection('payments').onSnapshot(function(qs){
     state.data.payments = qs.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
-    render();
+    render(); refreshFinance();
   }, function(e){ console.error(e); });
 
   if(isStaffSess() && canSeeMoney()) db.collection('expenses').onSnapshot(function(qs){
@@ -686,7 +706,7 @@ function logout(){
   authToken = null; saveToken(null);
   if(state.db) state.db.close();
   // не держим в памяти данные прошлой сессии (деньги, заказы, контакты)
-  state.data = {staff:[], doctors:[], orders:[], payments:[], expenses:[], timeoff:[], priceList:[], config:null, activity:[]};
+  state.data = {staff:[], doctors:[], orders:[], payments:[], expenses:[], timeoff:[], priceList:[], config:null, activity:[], finance:null};
   render();
   fetch('/api/public/staff-list').then(function(r){return r.json();}).then(function(l){ if(!state.session){ state.data.staff = l; render(); } }).catch(function(){});
 }
@@ -919,7 +939,7 @@ function renderCard(o, moneyOk){
     '<div class="doc">'+esc(o.doctorName||'')+(o.clinicName?' · '+esc(o.clinicName):'')+'</div>'+
     (assignee ? '<div class="doc">Исполнитель: '+esc(assignee)+'</div>' : '')+
     '<div class="metaRow"><span class="due '+dc+'">'+dueLabel(o.dueDate, o.stage)+'</span></div>'+
-    (moneyOk ? '<div class="money">'+fmtMoney(o.total)+' · оплачено '+fmtMoney(paid)+'</div>' : '')+
+    (moneyOk ? '<div class="money">'+fmtMoney(o.total)+' · оплачено '+fmtMoney(paid)+(paid>(o.total||0)?' <span class="badge crit">переплата</span>':'')+'</div>' : '')+
   '</div>';
 }
 
@@ -1044,10 +1064,17 @@ function renderModal(){
     moneyBlock = '<div style="border-top:1px solid var(--border); padding-top:12px;">'+
       '<div class="kv"><b>Сумма заказа</b><span class="mono">'+fmtMoney(o.total)+(o.urgent?' <span class="badge crit">срочно +'+cfg().urgentPercent+'%</span>':'')+'</span>'+
       '<b>Оплачено</b><span class="mono">'+fmtMoney(paid)+'</span>'+
-      '<b>Остаток</b><span class="mono">'+fmtMoney(o.total-paid)+'</span>'+
+      (o.total-paid<0
+        ? '<b>Переплата</b><span class="mono" style="color:var(--critical-ink);">'+fmtMoney(paid-o.total)+' <span class="badge crit">больше суммы заказа</span></span>'
+        : '<b>Остаток</b><span class="mono">'+fmtMoney(o.total-paid)+'</span>')+
       '<b>Технику (начислено)</b><span class="mono">'+fmtMoney(techVal)+(o.techPayout!=null?'':' <span class="faint">(расчёт)</span>')+'</span>'+
       '<b>Фрезеровщику (начислено)</b><span class="mono">'+fmtMoney(millerVal)+(o.millerPayout!=null?'':' <span class="faint">(расчёт)</span>')+'</span></div>'+
-      (pays.length? '<div style="margin-top:8px;">'+pays.map(function(p){return '<div class="faint">'+fmtDate(p.date)+' — '+fmtMoney(p.amount)+' ('+esc(p.method||'')+')</div>';}).join('')+'</div>' : '')+
+      (pays.length? '<div style="margin-top:8px;">'+pays.map(function(p){
+        if(state.ui.editPaymentId===p.id) return paymentEditForm(p);
+        return '<div class="faint" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:2px 0;"><span>'+fmtDate(p.date)+' — '+fmtMoney(p.amount)+' ('+esc(p.method||'')+')</span>'+
+          '<button class="btn sm ghost" type="button" data-act="editPayment" data-id="'+p.id+'">Изменить</button>'+
+          '<button class="btn sm danger" type="button" data-act="delPayment" data-id="'+p.id+'">Удалить</button></div>';
+      }).join('')+'</div>' : '')+
       '<form data-act="addPayment" data-id="'+o.id+'" style="display:flex; gap:8px; margin-top:10px;">'+
         '<input type="number" name="amount" placeholder="Сумма оплаты" min="1" required style="flex:1;">'+
         '<button class="btn sm primary" type="submit">Добавить оплату</button></form>'+
@@ -1098,19 +1125,26 @@ function renderModal(){
 }
 
 /* ---------- FINANCE ---------- */
+function paymentEditForm(p){
+  return '<form data-act="updatePayment" data-id="'+p.id+'" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:4px 0;">'+
+    '<input type="number" name="amount" min="1" step="any" value="'+(p.amount||0)+'" required style="width:110px;">'+
+    '<input type="date" name="date" value="'+esc(p.date||'')+'" required>'+
+    '<button class="btn sm primary" type="submit">Сохранить</button><button class="btn sm ghost" type="button" data-act="cancelEditPayment">Отмена</button></form>';
+}
 function renderFinance(){
   var orders = state.data.orders;
   var payments = state.data.payments;
   var expenses = state.data.expenses;
   var monthStart = todayIso().slice(0,7)+'-01';
   var revenueMonth = payments.filter(function(p){return p.date>=monthStart;}).reduce(function(a,p){return a+p.amount;},0);
-  var outstanding = orders.reduce(function(a,o){return a+Math.max(0,(o.total||0)-orderPaid(o.id));},0);
+  var fin = state.data.finance;
+  var outstanding = fin ? fin.outstanding : orders.reduce(function(a,o){return a+Math.max(0,(o.total||0)-orderPaid(o.id));},0);
   var expenseMonth = expenses.filter(function(e){return e.date>=monthStart;}).reduce(function(a,e){return a+e.amount;},0);
 
   var techs = state.data.staff.filter(function(s){return s.role==='technician'||s.role==='miller';});
   var payoutRows = techs.map(function(t){
     var isMiller = t.role==='miller';
-    var accrued = orders.filter(function(o){return isMiller ? o.assignedMillerId===t.id : o.assignedStaffId===t.id;})
+    var accrued = fin ? (fin.accrued[t.id]||0) : orders.filter(function(o){return isMiller ? o.assignedMillerId===t.id : o.assignedStaffId===t.id;})
       .reduce(function(a,o){
         var override = isMiller ? o.millerPayout : o.techPayout;
         return a + (override!=null ? override : calcPayout(o, isMiller?'miller':'technician'));
@@ -1122,14 +1156,35 @@ function renderFinance(){
   }).join('');
 
   var expenseRows = expenses.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).map(function(e){
-    return '<tr><td>'+fmtDate(e.date)+'</td><td>'+esc(e.category)+(e.demo?'<span class="demo-tag">демо</span>':'')+'</td><td>'+esc(e.note||'')+'</td><td class="mono">'+fmtMoney(e.amount)+'</td></tr>';
+    if(state.ui.editExpenseId===e.id){
+      return '<tr><td colspan="5"><form data-act="updateExpense" data-id="'+e.id+'" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">'+
+        '<label class="field">Дата<input type="date" name="date" value="'+esc(e.date||'')+'" required></label>'+
+        '<label class="field">Категория<input type="text" name="category" value="'+esc(e.category||'')+'" required></label>'+
+        '<label class="field" style="flex:1; min-width:140px;">Комментарий<input type="text" name="note" value="'+esc(e.note||'')+'"></label>'+
+        '<label class="field" style="width:120px;">Сумма<input type="number" name="amount" min="1" step="any" value="'+(e.amount||0)+'" required></label>'+
+        '<button class="btn sm primary" type="submit">Сохранить</button><button class="btn sm ghost" type="button" data-act="cancelEditExpense">Отмена</button></form></td></tr>';
+    }
+    return '<tr><td>'+fmtDate(e.date)+'</td><td>'+esc(e.category)+(e.demo?'<span class="demo-tag">демо</span>':'')+'</td><td>'+esc(e.note||'')+'</td><td class="mono">'+fmtMoney(e.amount)+'</td>'+
+      '<td class="btn-row" style="white-space:nowrap;"><button class="btn sm ghost" data-act="editExpense" data-id="'+e.id+'">Изменить</button><button class="btn sm danger" data-act="delExpense" data-id="'+e.id+'">Удалить</button></td></tr>';
+  }).join('');
+
+  var orderById = {};
+  orders.forEach(function(o){ orderById[o.id] = o; });
+  var paymentRows = payments.slice().sort(function(a,b){return ((b.date||'')+(b.createdAt||'')).localeCompare((a.date||'')+(a.createdAt||''));}).slice(0,60).map(function(p){
+    var po = orderById[p.orderId];
+    if(state.ui.editPaymentId===p.id){
+      return '<tr><td colspan="5">'+paymentEditForm(p)+'</td></tr>';
+    }
+    return '<tr><td>'+fmtDate(p.date)+'</td><td>'+(po ? '<b class="mono">'+esc(po.code)+'</b> <span class="faint">'+esc(po.patientName||'')+'</span>' : '<span class="faint">заказ не найден (удалён или старше последних 500)</span>')+'</td>'+
+      '<td>'+esc(p.method||'')+(p.demo?'<span class="demo-tag">демо</span>':'')+'</td><td class="mono">'+fmtMoney(p.amount)+'</td>'+
+      '<td class="btn-row" style="white-space:nowrap;"><button class="btn sm ghost" data-act="editPayment" data-id="'+p.id+'">Изменить</button><button class="btn sm danger" data-act="delPayment" data-id="'+p.id+'">Удалить</button></td></tr>';
   }).join('');
 
   return '<div class="stat-row">'+
     '<div class="stat-tile good"><div class="label">Оплаты за месяц</div><div class="value">'+fmtMoney(revenueMonth)+'</div></div>'+
     '<div class="stat-tile crit"><div class="label">Задолженность клиник</div><div class="value">'+fmtMoney(outstanding)+'</div></div>'+
     '<div class="stat-tile"><div class="label">Расходы за месяц</div><div class="value">'+fmtMoney(expenseMonth)+'</div></div>'+
-    '<div class="stat-tile"><div class="label">Заказов активно</div><div class="value">'+orders.filter(function(o){return o.stage!==cfg().stages[cfg().stages.length-1];}).length+'</div></div>'+
+    '<div class="stat-tile"><div class="label">Заказов активно</div><div class="value">'+(fin ? fin.activeOrders : orders.filter(function(o){return o.stage!==cfg().stages[cfg().stages.length-1];}).length)+'</div></div>'+
   '</div>'+
   '<h3 style="margin-bottom:10px;">Выплаты техникам</h3>'+
   '<div class="table-wrap" style="margin-bottom:22px;"><table><thead><tr><th>Сотрудник</th><th>Начислено</th><th>Выплачено</th><th>Остаток</th><th></th></tr></thead><tbody>'+
@@ -1141,8 +1196,12 @@ function renderFinance(){
     '<label class="field" style="flex:1; min-width:160px;">Комментарий<input type="text" name="note"></label>'+
     '<button class="btn primary" type="submit">Добавить</button>'+
   '</form>'+
-  '<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Категория</th><th>Комментарий</th><th>Сумма</th></tr></thead><tbody>'+
-  (expenseRows || '<tr><td colspan="4" class="empty-state">Расходов нет</td></tr>')+'</tbody></table></div>';
+  '<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Категория</th><th>Комментарий</th><th>Сумма</th><th></th></tr></thead><tbody>'+
+  (expenseRows || '<tr><td colspan="5" class="empty-state">Расходов нет</td></tr>')+'</tbody></table></div>'+
+  '<div class="section-head" style="margin-top:22px;"><h3>Оплаты от клиник</h3></div>'+
+  '<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Заказ</th><th>Способ</th><th>Сумма</th><th></th></tr></thead><tbody>'+
+  (paymentRows || '<tr><td colspan="5" class="empty-state">Оплат пока нет</td></tr>')+'</tbody></table></div>'+
+  (payments.length>60 ? '<p class="hint" style="margin-top:8px;">Показаны 60 последних оплат. Остальные доступны в карточке соответствующего заказа.</p>' : '');
 }
 
 /* ---------- SCHEDULE / TIMEOFF ---------- */
@@ -1574,7 +1633,7 @@ document.addEventListener('click', async function(e){
   if(act==='pinClear'){ state.ui.pinBuf=''; render(); return; }
   if(act==='logout'){ logout(); return; }
 
-  if(act==='nav'){ state.view = el.getAttribute('data-v'); state.ui.mobileNavOpen = false; render(); return; }
+  if(act==='nav'){ state.view = el.getAttribute('data-v'); state.ui.mobileNavOpen = false; render(); if(state.view==='finance') refreshFinance(); return; }
   if(act==='navdoc'){ state.view = el.getAttribute('data-v'); render(); return; }
   if(act==='openNewOrder'){ openOrderForm('staff'); return; }
   if(act==='toggleMobileNav'){ state.ui.mobileNavOpen = !state.ui.mobileNavOpen; render(); return; }
@@ -1719,6 +1778,33 @@ document.addEventListener('click', async function(e){
     toast('Демо-данные удалены');
     return;
   }
+  if(act==='editPayment'){ state.ui.editPaymentId = el.getAttribute('data-id'); render(); return; }
+  if(act==='cancelEditPayment'){ state.ui.editPaymentId = null; render(); return; }
+  if(act==='delPayment'){
+    if(!state.db) return;
+    var dpId = el.getAttribute('data-id');
+    var dp = state.data.payments.filter(function(x){return x.id===dpId;})[0];
+    var dpOrd = dp ? state.data.orders.filter(function(x){return x.id===dp.orderId;})[0] : null;
+    if(!dp) return;
+    if(!confirm('Удалить оплату '+fmtMoney(dp.amount)+' от '+fmtDate(dp.date)+(dpOrd?' по заказу '+dpOrd.code:'')+'?')) return;
+    await state.db.collection('payments').doc(dpId).delete();
+    logActivity('payment_delete', 'Удалена оплата '+fmtMoney(dp.amount)+' ('+fmtDate(dp.date)+') по заказу '+(dpOrd?dpOrd.code:dp.orderId));
+    state.ui.editPaymentId = null;
+    toast('Оплата удалена'); return;
+  }
+  if(act==='editExpense'){ state.ui.editExpenseId = el.getAttribute('data-id'); render(); return; }
+  if(act==='cancelEditExpense'){ state.ui.editExpenseId = null; render(); return; }
+  if(act==='delExpense'){
+    if(!state.db) return;
+    var deId = el.getAttribute('data-id');
+    var de = state.data.expenses.filter(function(x){return x.id===deId;})[0];
+    if(!de) return;
+    if(!confirm('Удалить расход «'+de.category+'» на '+fmtMoney(de.amount)+' от '+fmtDate(de.date)+'?')) return;
+    await state.db.collection('expenses').doc(deId).delete();
+    logActivity('expense_delete', 'Удалён расход '+fmtMoney(de.amount)+' — '+de.category+' ('+fmtDate(de.date)+')');
+    state.ui.editExpenseId = null;
+    toast('Расход удалён'); return;
+  }
   if(act==='delTimeoff'){ if(!state.db) return; await state.db.collection('timeoff').doc(el.getAttribute('data-id')).delete(); logActivity('timeoff_delete', 'Удалена запись графика/отгула'); return; }
 
   }catch(err){ console.error(err); toast('Ошибка: '+(err&&err.message?err.message:'попробуйте ещё раз')); }
@@ -1840,11 +1926,41 @@ document.addEventListener('submit', async function(e){
     if(!state.db) return;
     var id = form.getAttribute('data-id'); var amount = +fd.get('amount');
     if(!amount||amount<=0) return;
+    var ordForPay = state.data.orders.filter(function(x){return x.id===id;})[0];
+    if(ordForPay){
+      var remainBefore = Math.max(0, (ordForPay.total||0) - orderPaid(id));
+      if(amount > remainBefore && !confirm('Внимание: оплата '+fmtMoney(amount)+' больше остатка по заказу ('+fmtMoney(remainBefore)+').\nБудет переплата '+fmtMoney(amount-remainBefore)+'.\n\nВсё равно добавить оплату?')) return;
+    }
     await state.db.collection('payments').add({orderId:id, amount:amount, method:'Перевод', date:todayIso(), note:'', demo:false, createdAt:new Date().toISOString()});
     var payOrd = state.data.orders.filter(function(x){return x.id===id;})[0];
     logActivity('payment_add', 'Оплата '+fmtMoney(amount)+' по заказу '+(payOrd?payOrd.code:id));
     form.reset(); toast('Оплата добавлена');
     return;
+  }
+  if(act==='updatePayment'){
+    if(!state.db) return;
+    var upId = form.getAttribute('data-id'); var upAmt = +fd.get('amount'); var upDate = fd.get('date');
+    var upOld = state.data.payments.filter(function(x){return x.id===upId;})[0];
+    if(!upOld || !upAmt || upAmt<=0 || !upDate){ toast('Укажите сумму и дату'); return; }
+    var upOrd = state.data.orders.filter(function(x){return x.id===upOld.orderId;})[0];
+    if(upOrd){
+      var remainAfter = (upOrd.total||0) - (orderPaid(upOrd.id) - (upOld.amount||0));
+      if(upAmt > Math.max(0, remainAfter) && !confirm('Внимание: с этой суммой оплаты по заказу превысят его стоимость ('+fmtMoney(upOrd.total)+') — переплата '+fmtMoney(upAmt-Math.max(0,remainAfter))+'.\n\nВсё равно сохранить?')) return;
+    }
+    await state.db.collection('payments').doc(upId).update({amount:upAmt, date:upDate});
+    logActivity('payment_edit', 'Изменена оплата по заказу '+(upOrd?upOrd.code:upOld.orderId)+': '+fmtMoney(upOld.amount)+' → '+fmtMoney(upAmt)+(upDate!==upOld.date?' (дата '+fmtDate(upOld.date)+' → '+fmtDate(upDate)+')':''));
+    state.ui.editPaymentId = null;
+    toast('Оплата обновлена'); return;
+  }
+  if(act==='updateExpense'){
+    if(!state.db) return;
+    var ueId = form.getAttribute('data-id'); var ueAmt = +fd.get('amount');
+    var ueOld = state.data.expenses.filter(function(x){return x.id===ueId;})[0];
+    if(!ueOld || !ueAmt || ueAmt<=0){ toast('Укажите сумму'); return; }
+    await state.db.collection('expenses').doc(ueId).update({amount:ueAmt, date:fd.get('date'), category:fd.get('category'), note:fd.get('note')||''});
+    logActivity('expense_edit', 'Изменён расход «'+ueOld.category+'»: '+fmtMoney(ueOld.amount)+' → '+fmtMoney(ueAmt));
+    state.ui.editExpenseId = null;
+    toast('Расход обновлён'); return;
   }
   if(act==='setPayout'){
     if(!state.db) return;

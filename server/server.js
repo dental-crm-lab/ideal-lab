@@ -13,6 +13,7 @@ const { seedIfNeeded } = require('./seed');
 const superadmin = require('./superadmin');
 const push = require('./push');
 const auth = require('./auth');
+const finance = require('./finance');
 
 seedIfNeeded();
 auth.migratePins();
@@ -195,7 +196,19 @@ app.delete('/api/doc/:coll/:id', (req, res) => {
   const g = guardWrite(req, res, 'DELETE', req.params.id);
   if (!g) return;
   store.deleteDoc(g.coll + '/' + req.params.id);
+  if (g.coll === 'orders') {
+    // платежи удалённого заказа не должны оставаться «висящими» в финансах
+    store.listCollection('payments')
+      .filter((r) => r.data.orderId === req.params.id)
+      .forEach((r) => store.deleteDoc('payments/' + r.id));
+  }
   res.json({ ok: true });
+});
+
+// сводка по всем заказам (дебиторка, начисления) — только для ролей с доступом к деньгам
+app.get('/api/finance/summary', auth.authenticate, (req, res) => {
+  if (!auth.hasMoney(req.user)) return res.status(403).json({ error: 'forbidden' });
+  res.json(finance.summary());
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
