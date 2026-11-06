@@ -152,6 +152,7 @@ function authenticate(req, res, next) {
 const COLLECTIONS = ['staff', 'doctors', 'orders', 'payments', 'expenses', 'timeoff', 'settings', 'activity', 'pushSubscriptions'];
 const PUBLIC_SETTINGS = ['config', 'priceList']; // единственные settings-документы, доступные через API (vapid содержит приватный ключ!)
 const MONEY_ROLES = ['owner', 'admin', 'accountant'];
+const ORDER_PRICING_KEYS = ['items', 'total', 'subtotal', 'unitsTotal', 'urgent'];
 const isStaff = (u) => u.type === 'staff';
 const isAdminLike = (u) => isStaff(u) && (u.role === 'admin' || u.role === 'owner');
 const isOwner = (u) => isStaff(u) && u.role === 'owner';
@@ -212,6 +213,13 @@ function checkWrite(u, method, coll, id, body, existing) {
   switch (coll) {
     case 'orders':
       if (method === 'DELETE') return isOwner(u) ? null : 'forbidden';
+      // состав заказа и сумму (позиции, итоги, срочность) меняют только админ/владелец
+      if ((method === 'PATCH' || method === 'PUT') && !isAdminLike(u)) {
+        const ex = existing || {};
+        const same = (k) => JSON.stringify(body[k]) === JSON.stringify(ex[k]);
+        const keys = ORDER_PRICING_KEYS.filter((k) => (method === 'PUT' ? true : body[k] !== undefined));
+        if (!keys.every(same)) return 'forbidden';
+      }
       return null;
     case 'payments':
     case 'expenses':

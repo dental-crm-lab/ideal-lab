@@ -1107,6 +1107,55 @@ function renderOrdersList(){
 }
 
 /* ---------- ORDER DETAIL MODAL ---------- */
+/* ---------- РЕДАКТИРОВАНИЕ ПОЗИЦИЙ ЗАКАЗА (только админ / владелец) ---------- */
+function canEditItems(){ return isAdmin(); }
+function lineUnits(li){ return li.unit==='tooth' ? (li.teeth||[]).length : (li.qty||1); }
+function lineSum(li){ return lineUnits(li) * ((li.unitPrice||0) + (li.addon ? (li.addonPrice||0) : 0)); }
+// Срочная наценка сохраняется в том виде, в каком была при создании заказа (а не по текущему проценту в настройках)
+function urgentFactor(o){
+  if(!o.urgent) return 1;
+  if(o.subtotal>0 && o.total>0) return o.total / o.subtotal;
+  return 1 + (cfg().urgentPercent||0)/100;
+}
+function editedTotals(o){
+  var items = state.ui.editItems || [];
+  var sub = items.reduce(function(a,li){ return a + lineSum(li); }, 0);
+  var units = items.reduce(function(a,li){ return a + lineUnits(li); }, 0);
+  return { subtotal: sub, units: units, total: o.urgent ? Math.round(sub * urgentFactor(o)) : sub };
+}
+function itemsPlain(items){
+  return (items||[]).map(function(li){
+    return {name:li.name, unit:li.unit, teeth:(li.teeth||[]).slice(), qty:li.qty||null, addon:!!li.addon, lineTotal:li.lineTotal!=null?li.lineTotal:lineSum(li)};
+  });
+}
+function renderItemsEditor(o){
+  var pl = state.data.priceList, cats = [];
+  pl.forEach(function(it){ if(cats.indexOf(it.category)===-1) cats.push(it.category); });
+  var options = cats.map(function(cat){
+    return '<optgroup label="'+esc(cat)+'">'+pl.filter(function(it){return it.category===cat;}).map(function(it){return '<option value="'+it.id+'">'+esc(it.name)+' — '+fmtMoney(it.price)+'</option>';}).join('')+'</optgroup>';
+  }).join('');
+  var lines = state.ui.editItems.map(function(li, idx){
+    var def = pl.filter(function(x){return x.id===li.itemId;})[0] || {};
+    var addonPrice = li.addonPrice || def.addon || 0;
+    var head = '<div class="top"><div><div class="name">'+esc(li.name)+'</div><div class="price">'+fmtMoney(li.unitPrice)+(li.unit==='tooth'?' / зуб':' / работу')+'</div></div><button type="button" class="rm" data-act="rmEditLine" data-idx="'+idx+'" title="Убрать позицию">×</button></div>';
+    var addon = (addonPrice>0 && (def.addon || li.addon)) ? '<label class="check" style="margin-top:6px;"><input type="checkbox" data-act="toggleEditAddon" data-idx="'+idx+'" '+(li.addon?'checked':'')+'> + '+esc(def.addonLabel||'доп. основание')+' ('+fmtMoney(addonPrice)+' / шт)</label>' : '';
+    if(li.unit==='tooth'){
+      return '<div class="draft-line">'+head+renderMiniToothChart(li.teeth, idx, 'toggleEditTooth')+addon+'<div class="linetotal">'+li.teeth.length+' зуб(ов) · '+fmtMoney(lineSum(li))+'</div></div>';
+    }
+    return '<div class="draft-line">'+head+'<div class="qtyBox">Количество: <input type="number" min="1" value="'+(li.qty||1)+'" data-act="setEditQty" data-idx="'+idx+'"></div>'+addon+'<div class="linetotal">'+fmtMoney(lineSum(li))+'</div></div>';
+  }).join('') || '<p class="hint">Позиций нет — добавьте хотя бы одну.</p>';
+  var t = editedTotals(o);
+  var diff = t.total - (o.total||0);
+  return '<div class="items-editor"><div class="hint" style="margin-bottom:6px;">Редактирование позиций заказа</div>'+
+    '<div style="display:flex; gap:8px;"><select id="editPickerSelect" style="flex:1; min-width:0;">'+options+'</select><button type="button" class="btn" data-act="addEditLine">Добавить</button></div>'+
+    '<div style="margin-top:12px;">'+lines+'</div>'+
+    '<div class="kv" style="margin-top:10px;"><b>Было</b><span class="mono">'+fmtMoney(o.total)+'</span>'+
+      '<b>Станет</b><span class="mono"><b>'+fmtMoney(t.total)+'</b>'+(o.urgent?' <span class="faint">(с наценкой за срочность)</span>':'')+'</span>'+
+      '<b>Разница</b><span class="mono" style="color:'+(diff===0?'inherit':(diff>0?'var(--good-ink)':'var(--critical-ink)'))+';">'+(diff>0?'+':'')+fmtMoney(diff)+'</span></div>'+
+    '<div class="btn-row" style="margin-top:10px;"><button type="button" class="btn primary sm" data-act="saveEditItems" data-id="'+o.id+'">Сохранить изменения</button><button type="button" class="btn ghost sm" data-act="cancelEditItems">Отмена</button></div>'+
+    '<p class="hint" style="margin-top:8px;">Срок сдачи не пересчитывается — при необходимости измените его в блоке «Информация о заказе». Изменение попадёт в «Историю изменений».</p>'+
+  '</div>';
+}
 function renderModal(){
   if(!state.ui.openOrderId) return '';
   var o = state.data.orders.filter(function(x){return x.id===state.ui.openOrderId;})[0];
@@ -1193,7 +1242,9 @@ function renderModal(){
       '<div class="kv"><b>Пациент</b><span>'+esc(o.patientName)+'</span><b>Врач</b><span>'+esc(o.doctorName||'')+'</span><b>Клиника</b><span>'+esc(o.clinicName||'')+'</span><b>Материал</b><span>'+materialLabel(o.material)+'</span><b>Срок</b><span class="'+dueClass(o.dueDate,o.stage)+'">'+fmtDate(o.dueDate)+' — '+dueLabel(o.dueDate,o.stage)+'</span></div>'+
       '<div><div class="hint" style="margin-bottom:6px;">Этап производства</div><div class="stage-pill-row">'+pills+'</div></div>'+
       assignBlock+
-      '<div><div class="hint" style="margin-bottom:6px;">Позиции заказа</div><div class="table-wrap"><table><thead><tr><th>Работа</th><th>Зубы / кол-во</th>'+(moneyOk?'<th>Сумма</th>':'')+'</tr></thead><tbody>'+itemsHtml+'</tbody></table></div></div>'+
+      (state.ui.editItems && state.ui.editItemsOrderId===o.id ? renderItemsEditor(o) :
+        '<div><div class="hint" style="margin-bottom:6px;">Позиции заказа</div><div class="table-wrap"><table><thead><tr><th>Работа</th><th>Зубы / кол-во</th>'+(moneyOk?'<th>Сумма</th>':'')+'</tr></thead><tbody>'+itemsHtml+'</tbody></table></div>'+
+        (canEditItems() ? '<div style="margin-top:8px;"><button type="button" class="btn sm ghost" data-act="editItems" data-id="'+o.id+'">Изменить позиции и сумму</button></div>' : '')+'</div>')+
       '<div><div class="hint" style="margin-bottom:6px;">Файлы / ссылки на сканы</div>'+linksHtml+'</div>'+
       (o.notes? '<div><div class="hint" style="margin-bottom:4px;">Примечание</div><div>'+esc(o.notes)+'</div></div>' : '')+
       moneyBlock+
@@ -1386,14 +1437,26 @@ function historySnapshotHtml(m){
     '<div class="hint" style="margin:10px 0 4px;">Файлы / сканы</div>'+links+
   '</div>';
 }
+function itemsTableHtml(items, money){
+  var rows = (items||[]).map(function(li){
+    var cnt = li.unit==='tooth' ? (li.teeth||[]).join(', ') : ((li.qty||1)+' шт.');
+    return '<tr><td>'+esc(li.name)+(li.addon?'<div class="faint">+ доп. основание</div>':'')+'</td><td class="mono">'+esc(cnt)+'</td>'+(money?'<td class="mono">'+fmtMoney(li.lineTotal)+'</td>':'')+'</tr>';
+  }).join('');
+  return '<div class="table-wrap"><table><thead><tr><th>Работа</th><th>Зубы / кол-во</th>'+(money?'<th>Сумма</th>':'')+'</tr></thead><tbody>'+(rows||'<tr><td colspan="3" class="empty-state">Позиций нет</td></tr>')+'</tbody></table></div>';
+}
+function historyItemsChangeHtml(m){
+  var money = canSeeMoney();
+  return '<div class="hist-detail"><div class="hint" style="margin-bottom:4px;">Было'+(money?' — итого '+fmtMoney(m.before&&m.before.total):'')+'</div>'+itemsTableHtml(m.before&&m.before.items, money)+
+    '<div class="hint" style="margin:10px 0 4px;">Стало'+(money?' — итого '+fmtMoney(m.after&&m.after.total):'')+'</div>'+itemsTableHtml(m.after&&m.after.items, money)+'</div>';
+}
 function renderHistory(){
   var open = state.ui.historyOpen || {};
   var rows = state.data.activity.map(function(a){
     var d = new Date(a.at); var dd = isNaN(d)||!a.at ? (a.at||'—') : (fmtDate(a.at.slice(0,10))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'));
-    var hasSnap = a.meta && a.meta.type==='order_snapshot' && a.meta.order;
+    var hasSnap = a.meta && ((a.meta.type==='order_snapshot' && a.meta.order) || a.meta.type==='items_change');
     var btn = hasSnap ? ' <button class="btn sm ghost" type="button" data-act="toggleHistory" data-id="'+a.id+'">'+(open[a.id]?'Скрыть':'Подробнее')+'</button>' : '';
     var main = '<tr><td class="mono" style="white-space:nowrap;">'+dd+'</td><td>'+esc(a.who||'—')+'</td><td>'+esc(a.text||'')+btn+'</td></tr>';
-    if(hasSnap && open[a.id]) main += '<tr class="hist-row"><td colspan="3">'+historySnapshotHtml(a.meta)+'</td></tr>';
+    if(hasSnap && open[a.id]) main += '<tr class="hist-row"><td colspan="3">'+(a.meta.type==='items_change' ? historyItemsChangeHtml(a.meta) : historySnapshotHtml(a.meta))+'</td></tr>';
     return main;
   }).join('');
   return '<div class="table-wrap"><table><thead><tr><th>Когда</th><th>Кто</th><th>Что произошло</th></tr></thead><tbody>'+
@@ -1615,10 +1678,11 @@ function renderOrderForm(mode){
     '</div>'+
   '</form>';
 }
-function renderMiniToothChart(selected, idx){
+function renderMiniToothChart(selected, idx, actName){
+  actName = actName || 'toggleTooth';
   function row(qkey, rev){
     return '<div class="tq'+(rev?' rev':'')+'">'+TEETH_Q[qkey].map(function(t){
-      return '<button type="button" class="tooth-btn'+(selected.indexOf(t)>-1?' on':'')+'" data-act="toggleTooth" data-idx="'+idx+'" data-t="'+t+'">'+t+'</button>';
+      return '<button type="button" class="tooth-btn'+(selected.indexOf(t)>-1?' on':'')+'" data-act="'+actName+'" data-idx="'+idx+'" data-t="'+t+'">'+t+'</button>';
     }).join('')+'</div>';
   }
   return '<div class="tooth-chart">'+row('q1',false)+row('q2',false)+row('q4',false)+row('q3',false)+'</div>';
@@ -1762,8 +1826,56 @@ document.addEventListener('click', async function(e){
   if(act==='toggleMobileNav'){ state.ui.mobileNavOpen = !state.ui.mobileNavOpen; render(); return; }
   if(act==='closeMobileNav'){ state.ui.mobileNavOpen = false; render(); return; }
 
-  if(act==='openOrder'){ state.ui.openOrderId = el.getAttribute('data-id'); render(); return; }
-  if(act==='closeModal'){ state.ui.openOrderId=null; render(); return; }
+  if(act==='openOrder'){ state.ui.openOrderId = el.getAttribute('data-id'); state.ui.editItems = null; state.ui.editItemsOrderId = null; render(); return; }
+  if(act==='closeModal'){ state.ui.openOrderId=null; state.ui.editItems = null; state.ui.editItemsOrderId = null; render(); return; }
+  if(act==='editItems'){
+    if(!canEditItems()){ toast('Править позиции заказа могут только админ и владелец'); return; }
+    var eo = state.data.orders.filter(function(x){return x.id===el.getAttribute('data-id');})[0];
+    if(!eo) return;
+    state.ui.editItemsOrderId = eo.id;
+    state.ui.editItems = (eo.items||[]).map(function(li){
+      return Object.assign({}, li, {teeth:(li.teeth||[]).slice(), qty: li.qty||1, addonPrice: li.addonPrice||0});
+    });
+    render(); return;
+  }
+  if(act==='cancelEditItems'){ state.ui.editItems = null; state.ui.editItemsOrderId = null; render(); return; }
+  if(act==='addEditLine'){
+    var pk = document.getElementById('editPickerSelect');
+    var pit = pk && state.data.priceList.filter(function(x){return x.id===pk.value;})[0];
+    if(!pit || !state.ui.editItems) return;
+    state.ui.editItems.push({lineId:uid(), itemId:pit.id, name:pit.name, unit:pit.unit, unitPrice:pit.price, addon:false, addonPrice:pit.addon||0, teeth:[], qty:1});
+    render(); return;
+  }
+  if(act==='rmEditLine'){ state.ui.editItems.splice(+el.getAttribute('data-idx'),1); render(); return; }
+  if(act==='toggleEditTooth'){
+    var eli = state.ui.editItems[+el.getAttribute('data-idx')], et = +el.getAttribute('data-t');
+    var epos = eli.teeth.indexOf(et);
+    if(epos>-1) eli.teeth.splice(epos,1); else eli.teeth.push(et);
+    render(); return;
+  }
+  if(act==='toggleEditAddon'){ state.ui.editItems[+el.getAttribute('data-idx')].addon = el.checked; render(); return; }
+  if(act==='saveEditItems'){
+    if(!state.db) return;
+    if(!canEditItems()){ toast('Править позиции заказа могут только админ и владелец'); return; }
+    var so = state.data.orders.filter(function(x){return x.id===el.getAttribute('data-id');})[0];
+    if(!so || !state.ui.editItems) return;
+    var bad = state.ui.editItems.filter(function(li){ return lineUnits(li)<=0; });
+    if(!state.ui.editItems.length){ toast('В заказе должна остаться хотя бы одна позиция'); return; }
+    if(bad.length){ toast('Укажите зубы или количество для позиции «'+bad[0].name+'»'); return; }
+    var tt = editedTotals(so);
+    var newItems = state.ui.editItems.map(function(li){
+      return {lineId:li.lineId, itemId:li.itemId, name:li.name, unit:li.unit, teeth:li.teeth.slice(), qty:li.qty||1, addon:!!li.addon, unitPrice:li.unitPrice, addonPrice:li.addonPrice||0, lineTotal:lineSum(li)};
+    });
+    var paidNow = orderPaid(so.id);
+    if(paidNow > tt.total && !confirm('Новая сумма заказа ('+fmtMoney(tt.total)+') меньше уже внесённых оплат ('+fmtMoney(paidNow)+').\nПолучится переплата '+fmtMoney(paidNow-tt.total)+'.\n\nВсё равно сохранить?')) return;
+    var before = {items:itemsPlain(so.items), total:so.total||0};
+    await state.db.collection('orders').doc(so.id).update({items:newItems, subtotal:tt.subtotal, total:tt.total, unitsTotal:tt.units});
+    var sumTxt = (so.total||0)===tt.total ? 'сумма без изменений ('+fmtMoney(tt.total)+')' : 'сумма '+fmtMoney(so.total)+' → '+fmtMoney(tt.total);
+    logActivity('order_items_edit', 'Изменены позиции заказа '+so.code+' — '+(so.patientName||'')+': '+sumTxt,
+      {type:'items_change', code:so.code, before:before, after:{items:itemsPlain(newItems), total:tt.total}});
+    state.ui.editItems = null; state.ui.editItemsOrderId = null;
+    toast('Позиции заказа обновлены'); return;
+  }
   if(act==='noop'){ return; }
 
   if(act==='toggleMine'){ state.ui.boardOnlyMine = el.checked; render(); return; }
@@ -1944,6 +2056,14 @@ document.addEventListener('input', function(e){
   var el = e.target;
   var act = el.getAttribute && el.getAttribute('data-act');
   if(act==='filterOrders'){ state.ui.orderFilter = el.value; render(); var ne=document.querySelector('[data-act=filterOrders]'); if(ne){ne.focus(); ne.setSelectionRange(ne.value.length,ne.value.length);} return; }
+  if(act==='setEditQty'){
+    var eqi = el.getAttribute('data-idx');
+    state.ui.editItems[+eqi].qty = Math.max(1, +el.value||1);
+    render();
+    var neq = document.querySelector('[data-act=setEditQty][data-idx="'+eqi+'"]');
+    if(neq){ neq.focus(); }
+    return;
+  }
   if(act==='setQty'){
     var qidx = el.getAttribute('data-idx');
     state.ui.draftItems[+qidx].qty = Math.max(1, +el.value||1);
