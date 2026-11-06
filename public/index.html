@@ -482,7 +482,12 @@ function fmtDate(iso){ if(!iso) return '—'; var d=new Date(iso+'T00:00:00'); i
 function todayIso(){ return new Date().toISOString().slice(0,10); }
 function addDays(iso, n){ var d = iso? new Date(iso+'T00:00:00') : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
 function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000); }
-function toast(msg){ state.ui.toast = msg; render(); setTimeout(function(){ state.ui.toast=null; render(); }, 2600); }
+var toastTimer = null;
+function toast(msg){
+  state.ui.toast = msg; render();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ state.ui.toast=null; render(); }, Math.max(2600, Math.min(12000, String(msg).length*70)));
+}
 
 function cfg(){ return state.data.config || DEFAULT_CONFIG; }
 
@@ -2230,8 +2235,11 @@ async function togglePush(){
       state.ui.pushSubscribed = false; render(); toast('Уведомления отключены');
       return;
     }
+    if(/Electron\//.test(navigator.userAgent)){
+      toast('Push-уведомления не работают в настольном приложении (Electron не имеет доступа к push-службе). Включите их в браузере Chrome/Edge/Safari или на телефоне.'); return;
+    }
     var perm = await Notification.requestPermission();
-    if(perm!=='granted'){ toast('Разрешение на уведомления не получено'); return; }
+    if(perm!=='granted'){ toast('Уведомления запрещены в настройках браузера для этого сайта. Разрешите их (значок замка рядом с адресом) и повторите.'); return; }
     var pkRes = await fetch('/api/push/public-key');
     var pk = await pkRes.json();
     if(!pk || !pk.publicKey){ toast('Не удалось получить ключ уведомлений'); return; }
@@ -2240,7 +2248,21 @@ async function togglePush(){
     var r = await state.db.collection('pushSubscriptions').add({ staffId: staffId, subscription: sub.toJSON(), createdAt: new Date().toISOString() });
     try{ localStorage.setItem('ideal_push_sub_id', r.id); }catch(e){}
     state.ui.pushSubscribed = true; render(); toast('Уведомления включены');
-  }catch(err){ console.error(err); toast('Ошибка уведомлений: '+(err&&err.message?err.message:'')); }
+  }catch(err){ console.error(err); toast(pushErrorMessage(err)); }
+}
+// Понятное сообщение вместо сырой ошибки браузера.
+function pushErrorMessage(err){
+  var name = err && err.name, msg = (err && err.message) || '';
+  if(/push service|registration failed/i.test(msg) && !/permission/i.test(msg)){
+    return 'Браузер не смог подключиться к службе push-уведомлений (у Chrome/Edge это сервер Google FCM). Обычно причина — сеть блокирует доступ к ней (фаервол, VPN, некоторые провайдеры), либо браузер без Google-сервисов (Chromium, Brave с выключенным push, режим инкогнито). Попробуйте другую сеть/Wi-Fi или обычный Chrome; на iPhone — добавьте сайт на экран «Домой» и включите там.';
+  }
+  if(name==='NotAllowedError' || /permission/i.test(msg)){
+    return 'Уведомления запрещены в настройках браузера для этого сайта. Разрешите их (значок замка рядом с адресом) и повторите.';
+  }
+  if(name==='NotSupportedError' || name==='SecurityError'){
+    return 'Этот браузер или адрес сайта не поддерживает push-уведомления (нужен HTTPS и современный браузер).';
+  }
+  return 'Не удалось включить уведомления: '+(msg||name||'неизвестная ошибка');
 }
 
 init();
