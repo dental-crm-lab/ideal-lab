@@ -203,7 +203,9 @@ function checkWrite(u, method, coll, id, body, existing) {
       const cfg = store.getDoc('settings/config') || {};
       body.stage = (cfg.stages && cfg.stages[0]) || 'Новый';
       body.assignedStaffId = null; body.assignedMillerId = null;
-      body.techPayout = null; body.millerPayout = null; body.demo = false;
+      body.assignedModelingId = null; body.assignedPaintingId = null; body.assignedMillingId = null;
+      body.techPayout = null; body.millerPayout = null;
+      body.modelingPayout = null; body.paintingPayout = null; body.millingPayout = null; body.demo = false;
       body.createdBy = { type: 'doctor', name: u.doc.name };
       return null;
     }
