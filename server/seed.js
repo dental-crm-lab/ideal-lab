@@ -12,7 +12,8 @@ const DEFAULT_CONFIG = {
   ],
   urgentDays: 2,
   urgentMultiplier: 1.4,
-  techSharePercent: 30
+  techSharePercent: 30,
+  stageRates: { modeling: 500, painting: 500, milling: 1000 }
 };
 
 const DEFAULT_PRICE_LIST = [

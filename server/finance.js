@@ -31,6 +31,34 @@ function calcPayout(o, p) {
   return Math.round((o.total || 0) * (p.percent || 0) / 100);
 }
 
+// Ставка за зуб по этапам (настраивается в Настройках), одинакова для всех материалов.
+const DEFAULT_RATES = { modeling: 500, painting: 500, milling: 1000 };
+const STAGE_WORKS = [
+  { key: 'modeling', idField: 'assignedModelingId', payField: 'modelingPayout' },
+  { key: 'painting', idField: 'assignedPaintingId', payField: 'paintingPayout' },
+  { key: 'milling', idField: 'assignedMillingId', payField: 'millingPayout' }
+];
+function unitsOf(o) {
+  if (o.unitsTotal != null) return Number(o.unitsTotal) || 0;
+  return (o.items || []).reduce((a, li) => a + (li.unit === 'tooth' ? (li.teeth || []).length : (li.qty || 0)), 0);
+}
+// Начисления по заказу: [{staffId, amount}]. Если назначен хоть один этап — новая схема
+// (зубы × ставка, либо ручное значение); иначе прежняя схема для старых заказов.
+function orderAccruals(o, cfg, pay) {
+  const rates = Object.assign({}, DEFAULT_RATES, cfg.stageRates);
+  const out = [];
+  if (STAGE_WORKS.some((w) => o[w.idField])) {
+    STAGE_WORKS.forEach((w) => {
+      if (!o[w.idField]) return;
+      out.push({ staffId: o[w.idField], amount: o[w.payField] != null ? Number(o[w.payField]) || 0 : unitsOf(o) * (Number(rates[w.key]) || 0) });
+    });
+  } else {
+    if (o.assignedStaffId) out.push({ staffId: o.assignedStaffId, amount: o.techPayout != null ? o.techPayout : calcPayout(o, pay.technician) });
+    if (o.assignedMillerId) out.push({ staffId: o.assignedMillerId, amount: o.millerPayout != null ? o.millerPayout : calcPayout(o, pay.miller) });
+  }
+  return out;
+}
+
 function summary() {
   const cfg = store.getDoc('settings/config') || {};
   const stages = cfg.stages && cfg.stages.length ? cfg.stages : DEFAULT_STAGES;
@@ -47,10 +75,9 @@ function summary() {
     count++;
     outstanding += Math.max(0, (o.total || 0) - (paidBy[r.id] || 0));
     if (o.stage !== lastStage) active++;
-    if (o.assignedStaffId) accrued[o.assignedStaffId] = (accrued[o.assignedStaffId] || 0) + (o.techPayout != null ? o.techPayout : calcPayout(o, pay.technician));
-    if (o.assignedMillerId) accrued[o.assignedMillerId] = (accrued[o.assignedMillerId] || 0) + (o.millerPayout != null ? o.millerPayout : calcPayout(o, pay.miller));
+    orderAccruals(o, cfg, pay).forEach((a) => { accrued[a.staffId] = (accrued[a.staffId] || 0) + a.amount; });
   });
   return { outstanding, activeOrders: active, ordersTotal: count, accrued };
 }
 
-module.exports = { summary };
+module.exports = { summary, orderAccruals };
