@@ -10,6 +10,7 @@ const { randomUUID } = require('crypto');
 
 const store = require('./store');
 const { seedIfNeeded } = require('./seed');
+const { migrateStageAssignees } = require('./migrate');
 const superadmin = require('./superadmin');
 const push = require('./push');
 const auth = require('./auth');
@@ -17,6 +18,7 @@ const finance = require('./finance');
 
 seedIfNeeded();
 auth.migratePins();
+migrateStageAssignees();
 
 const app = express();
 app.set('trust proxy', 1); // Railway/прокси: корректный req.ip для ограничения перебора PIN
